@@ -2,25 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from '../session-provider';
-import { Shield, Users, Plus, CheckCircle, Heart, Hospital, ChevronDown, ChevronUp, FileSpreadsheet, AlertCircle, DollarSign, Download, ExternalLink, Activity } from 'lucide-react';
+import { Shield, Users, Plus, CheckCircle, Heart, Hospital, ChevronDown, ChevronUp, FileSpreadsheet, AlertCircle, DollarSign, Download, ExternalLink, Activity, User, Trash2 } from 'lucide-react';
 
 export default function BenefitsPage() {
   const { user, triggerRefresh } = useSession();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Active Tab: 'directory' | 'claims' | 'plans' | 'remittance'
-  const [activeTab, setActiveTab] = useState<'directory' | 'claims' | 'plans' | 'remittance'>('directory');
+  // Active Tab: 'directory' | 'claims' | 'plans'
+  const [activeTab, setActiveTab] = useState<'directory' | 'claims' | 'plans'>('directory');
 
-  // Search & Filter
+  // Search & Filter (HR Admin)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProviderFilter, setSelectedProviderFilter] = useState('All');
 
-  // Expandable Accordion state for enrollees
+  // Expandable Accordion state for enrollees (HR Admin)
   const [expandedEnrolleeId, setExpandedEnrolleeId] = useState<string | null>(null);
 
   // Form state for enrollment (Employee View)
-  const [selectedPlanId, setSelectedPlanId] = useState('plan-2'); // Hygeia Silver default
+  const [selectedPlanId, setSelectedPlanId] = useState('plan-2'); // Default Hygeia Silver
   const [dependants, setDependants] = useState<{ name: string; relationship: 'Spouse' | 'Child'; dob: string }[]>([]);
   const [depName, setDepName] = useState('');
   const [depRel, setDepRel] = useState<'Spouse' | 'Child'>('Spouse');
@@ -218,17 +218,21 @@ export default function BenefitsPage() {
   const { employees, departments, plans, enrollments, claims } = data;
   const isAdmin = user?.role === 'HR Admin';
 
-  // Metrics Calculations
+  // Scoped Data Rules
+  const myEnrollment = enrollments.find((e: any) => e.employeeId === user?.id);
+  const myPlan = plans.find((p: any) => p.id === myEnrollment?.planId);
+  const visibleClaims = isAdmin ? claims : claims.filter((c: any) => c.employeeId === user?.id);
+
+  // Admin Metrics Calculations
   const totalEmployeesEnrolled = enrollments.length;
   const totalDependants = enrollments.reduce((sum: number, en: any) => sum + (en.dependants?.length || 0), 0);
   const totalCoveredLives = totalEmployeesEnrolled + totalDependants;
-
   const totalMonthlySpend = enrollments.reduce((sum: number, en: any) => {
     const plan = plans.find((p: any) => p.id === en.planId);
     return sum + (plan?.monthlyCost || 0);
   }, 0);
 
-  // Filtered Enrollees for HR Directory
+  // HR Filtered Enrollees Directory
   const filteredEnrollments = enrollments.filter((en: any) => {
     const emp = employees.find((e: any) => e.id === en.employeeId);
     const plan = plans.find((p: any) => p.id === en.planId);
@@ -244,10 +248,12 @@ export default function BenefitsPage() {
         <div>
           <h2 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Shield size={22} color="var(--accent)" />
-            HMO Health Insurance & Dependant Portal
+            {isAdmin ? 'HMO Health Insurance & Staff Benefits Hub' : 'My Healthcare Benefits & Family Dependant Portal'}
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Paperless corporate healthcare management, dependant registration, emergency out-of-pocket claims, and provider remittance exports.
+            {isAdmin 
+              ? 'Corporate health insurance administration, enrollee directory, out-of-pocket claims queue, and provider remittance schedules.' 
+              : 'Select your health insurance plan, register spouse & children dependants, and file out-of-pocket medical refund claims.'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -262,35 +268,58 @@ export default function BenefitsPage() {
         </div>
       </div>
 
-      {/* HR Covered Lives & Budget Metrics Banner */}
+      {/* Metrics Banner */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <div className="metric-card" style={{ borderLeft: '4px solid var(--primary)' }}>
-          <strong style={{ fontSize: '24px' }}>{totalCoveredLives}</strong>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Covered Lives ({totalEmployeesEnrolled} Staff + {totalDependants} Dependants)</p>
-        </div>
-        <div className="metric-card" style={{ borderLeft: '4px solid var(--accent)' }}>
-          <strong style={{ fontSize: '24px', color: 'var(--accent)' }}>₦{totalMonthlySpend.toLocaleString()}</strong>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Monthly Corporate HMO Spend</p>
-        </div>
-        <div className="metric-card" style={{ borderLeft: '4px solid var(--success)' }}>
-          <strong style={{ fontSize: '24px', color: 'var(--success)' }}>Hygeia & AXA</strong>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Top Enrolled HMO Providers</p>
-        </div>
-        <div className="metric-card" style={{ borderLeft: '4px solid var(--warning)' }}>
-          <strong style={{ fontSize: '24px' }}>{claims.filter((c: any) => c.status === 'Pending HR Review').length}</strong>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Pending Out-of-Pocket Claims</p>
-        </div>
+        {isAdmin ? (
+          <>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--primary)' }}>
+              <strong style={{ fontSize: '24px' }}>{totalCoveredLives}</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Covered Lives ({totalEmployeesEnrolled} Staff + {totalDependants} Dependants)</p>
+            </div>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--accent)' }}>
+              <strong style={{ fontSize: '24px', color: 'var(--accent)' }}>₦{totalMonthlySpend.toLocaleString()}</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Monthly Corporate HMO Spend</p>
+            </div>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--success)' }}>
+              <strong style={{ fontSize: '24px', color: 'var(--success)' }}>Hygeia & AXA</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Top Enrolled HMO Providers</p>
+            </div>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--warning)' }}>
+              <strong style={{ fontSize: '24px' }}>{claims.filter((c: any) => c.status === 'Pending HR Review').length}</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Pending HR Refund Claims</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--primary)' }}>
+              <strong style={{ fontSize: '18px' }}>{myPlan ? `${myPlan.provider} (${myPlan.tier})` : 'Not Enrolled'}</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>My Active HMO Plan</p>
+            </div>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--accent)' }}>
+              <strong style={{ fontSize: '18px', color: 'var(--accent)' }}>{myPlan ? myPlan.coveredLimit : '₦0'}</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Annual Hospital Limit</p>
+            </div>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--success)' }}>
+              <strong style={{ fontSize: '24px', color: 'var(--success)' }}>{dependants.length}</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Registered Family Dependants</p>
+            </div>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--warning)' }}>
+              <strong style={{ fontSize: '24px' }}>{visibleClaims.length}</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>My Submitted Claims</p>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* HR Navigation Tabs */}
+      {/* Tabs Switcher */}
       <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', flexWrap: 'wrap' }}>
         <button
           className={`btn-secondary ${activeTab === 'directory' ? 'btn-primary' : ''}`}
           onClick={() => setActiveTab('directory')}
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
-          <Users size={16} />
-          {isAdmin ? 'Enrollee Directory & Dependants' : 'My HMO Enrollment'}
+          {isAdmin ? <Users size={16} /> : <User size={16} />}
+          {isAdmin ? 'Enrollee Directory & Dependants' : 'My HMO & Family Dependants'}
         </button>
         <button
           className={`btn-secondary ${activeTab === 'claims' ? 'btn-primary' : ''}`}
@@ -298,7 +327,7 @@ export default function BenefitsPage() {
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
           <Activity size={16} />
-          Medical Emergency Claims ({claims.length})
+          {isAdmin ? `All Staff Emergency Claims (${claims.length})` : `My Refund Claims (${visibleClaims.length})`}
         </button>
         <button
           className={`btn-secondary ${activeTab === 'plans' ? 'btn-primary' : ''}`}
@@ -306,219 +335,265 @@ export default function BenefitsPage() {
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
           <Hospital size={16} />
-          HMO Tiers & Subsidy Rules
+          HMO Plan Catalog & Benefits
         </button>
       </div>
 
-      {/* TAB 1: ENROLLEE DIRECTORY (HR) & EMPLOYEE SELF-SERVICE */}
+      {/* TAB 1: ENROLLEE DIRECTORY (HR) vs MY FAMILY DEPENDANTS (EMPLOYEE) */}
       {activeTab === 'directory' && (
-        <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr' : '1fr 380px', gap: '24px' }}>
-          {/* Main Enrollee List */}
-          <div className="table-card">
-            <div className="table-header-area" style={{ flexWrap: 'wrap', gap: '12px' }}>
-              <h3 className="chart-title">Enrolled Staff & Family Directory ({filteredEnrollments.length})</h3>
-              <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '400px' }}>
-                <input
-                  type="text"
-                  placeholder="Search staff name..."
-                  className="filter-select"
-                  style={{ flex: 1 }}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <select
-                  className="filter-select"
-                  value={selectedProviderFilter}
-                  onChange={(e) => setSelectedProviderFilter(e.target.value)}
-                >
-                  <option value="All">All Providers</option>
-                  <option value="Reliance HMO">Reliance HMO</option>
-                  <option value="Hygeia HMO">Hygeia HMO</option>
-                  <option value="AXA Mansard">AXA Mansard</option>
-                  <option value="Leadway Health">Leadway Health</option>
-                </select>
-              </div>
-            </div>
-            <div className="table-responsive">
-              <table className="custom-table" style={{ fontSize: '13px' }}>
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>HMO Provider</th>
-                    <th>Tier</th>
-                    <th>Hospital Network</th>
-                    <th>Dependants Count</th>
-                    <th>Enrolled Date</th>
-                    <th style={{ textAlign: 'right' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEnrollments.map((en: any) => {
-                    const emp = employees.find((e: any) => e.id === en.employeeId);
-                    const plan = plans.find((p: any) => p.id === en.planId);
-                    const isExpanded = expandedEnrolleeId === en.id;
-
-                    return (
-                      <>
-                        <tr key={en.id}>
-                          <td>
-                            <strong>{emp?.name || en.employeeId}</strong>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{emp?.email}</div>
-                          </td>
-                          <td><strong>{plan?.provider || 'Custom'}</strong></td>
-                          <td><span className="badge badge-applied">{plan?.tier} Tier</span></td>
-                          <td>{plan?.hospitalCount}+ Hospitals</td>
-                          <td>
-                            <span className="badge badge-inprogress" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <Users size={12} /> {en.dependants?.length || 0} Dependants
-                            </span>
-                          </td>
-                          <td>{en.enrolledDate}</td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button
-                              className="btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '11px' }}
-                              onClick={() => setExpandedEnrolleeId(isExpanded ? null : en.id)}
-                            >
-                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Details
-                            </button>
-                          </td>
-                        </tr>
-                        {/* Expandable Dependant Accordion */}
-                        {isExpanded && (
-                          <tr key={`${en.id}-dep`} style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                            <td colSpan={7} style={{ padding: '16px' }}>
-                              <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--primary)' }}>
-                                Registered Family Dependants ({en.dependants?.length || 0})
-                              </div>
-                              {(!en.dependants || en.dependants.length === 0) ? (
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No dependants registered under this plan.</div>
-                              ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                                  {en.dependants.map((d: any, idx: number) => (
-                                    <div key={idx} style={{ backgroundColor: 'var(--bg-primary)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
-                                      <div style={{ fontWeight: 600 }}>{d.name}</div>
-                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                        Relationship: <strong>{d.relationship}</strong> • DOB: {d.dob}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Employee Self-Service Enrollment Form */}
-          {!isAdmin && (
-            <div className="card">
-              <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                <Heart size={18} color="var(--accent)" /> Register Family Dependants
-              </h3>
-
-              {enrollMsg && <div style={{ fontSize: '12px', backgroundColor: 'var(--bg-tertiary)', padding: '10px', borderRadius: 'var(--radius-md)', marginBottom: '12px' }}>{enrollMsg}</div>}
-
-              <form onSubmit={handleEnroll} style={{ display: 'grid', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">Select HMO Tier</label>
-                  <select className="form-control" value={selectedPlanId} onChange={(e) => setSelectedPlanId(e.target.value)}>
-                    {plans.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.provider} ({p.tier} Tier - ₦{p.monthlyCost.toLocaleString()}/mo)</option>
-                    ))}
+        <>
+          {isAdmin ? (
+            /* HR ADMIN VIEW: FULL COMPANY ENROLLEE DIRECTORY */
+            <div className="table-card">
+              <div className="table-header-area" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                <h3 className="chart-title">Company Staff & Family Enrollee Directory ({filteredEnrollments.length})</h3>
+                <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '400px' }}>
+                  <input
+                    type="text"
+                    placeholder="Search staff name..."
+                    className="filter-select"
+                    style={{ flex: 1 }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  <select
+                    className="filter-select"
+                    value={selectedProviderFilter}
+                    onChange={(e) => setSelectedProviderFilter(e.target.value)}
+                  >
+                    <option value="All">All Providers</option>
+                    <option value="Reliance HMO">Reliance HMO</option>
+                    <option value="Hygeia HMO">Hygeia HMO</option>
+                    <option value="AXA Mansard">AXA Mansard</option>
+                    <option value="Leadway Health">Leadway Health</option>
                   </select>
                 </div>
+              </div>
+              <div className="table-responsive">
+                <table className="custom-table" style={{ fontSize: '13px' }}>
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>HMO Provider</th>
+                      <th>Tier</th>
+                      <th>Hospital Network</th>
+                      <th>Dependants Count</th>
+                      <th>Enrolled Date</th>
+                      <th style={{ textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredEnrollments.map((en: any) => {
+                      const emp = employees.find((e: any) => e.id === en.employeeId);
+                      const plan = plans.find((p: any) => p.id === en.planId);
+                      const isExpanded = expandedEnrolleeId === en.id;
 
-                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                  <label className="form-label">Add Spouse / Child</label>
-                  <div style={{ display: 'grid', gap: '10px' }}>
-                    <input className="form-control" placeholder="Full Legal Name" value={depName} onChange={(e) => setDepName(e.target.value)} />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <select className="form-control" value={depRel} onChange={(e) => setDepRel(e.target.value as any)}>
-                        <option value="Spouse">Spouse</option>
-                        <option value="Child">Child</option>
-                      </select>
-                      <input type="date" className="form-control" value={depDob} onChange={(e) => setDepDob(e.target.value)} />
+                      return (
+                        <>
+                          <tr key={en.id}>
+                            <td>
+                              <strong>{emp?.name || en.employeeId}</strong>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{emp?.email}</div>
+                            </td>
+                            <td><strong>{plan?.provider || 'Custom'}</strong></td>
+                            <td><span className="badge badge-applied">{plan?.tier} Tier</span></td>
+                            <td>{plan?.hospitalCount}+ Hospitals</td>
+                            <td>
+                              <span className="badge badge-inprogress" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <Users size={12} /> {en.dependants?.length || 0} Dependants
+                              </span>
+                            </td>
+                            <td>{en.enrolledDate}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button
+                                className="btn-secondary"
+                                style={{ padding: '4px 8px', fontSize: '11px' }}
+                                onClick={() => setExpandedEnrolleeId(isExpanded ? null : en.id)}
+                              >
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Details
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${en.id}-dep`} style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                              <td colSpan={7} style={{ padding: '16px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '8px', color: 'var(--primary)' }}>
+                                  Registered Family Dependants ({en.dependants?.length || 0})
+                                </div>
+                                {(!en.dependants || en.dependants.length === 0) ? (
+                                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No dependants registered under this plan.</div>
+                                ) : (
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                                    {en.dependants.map((d: any, idx: number) => (
+                                      <div key={idx} style={{ backgroundColor: 'var(--bg-primary)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                                        <div style={{ fontWeight: 600 }}>{d.name}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                          Relationship: <strong>{d.relationship}</strong> • DOB: {d.dob}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* EMPLOYEE VIEW: PRIVATE HMO COVERAGE & FAMILY DEPENDANTS MANAGEMENT */
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '24px' }}>
+              {/* Active Plan & Dependants Cards */}
+              <div style={{ display: 'grid', gap: '20px' }}>
+                <div className="card">
+                  <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <Shield size={20} color="var(--primary)" /> My Active Healthcare Coverage
+                  </h3>
+                  {myPlan ? (
+                    <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <strong style={{ fontSize: '16px' }}>{myPlan.provider}</strong>
+                        <span className="badge badge-applied">{myPlan.tier} Tier</span>
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                        Hospital Network: <strong>{myPlan.hospitalCount}+ Hospitals Nationwide</strong> • Limit: <strong>{myPlan.coveredLimit}</strong>
+                      </div>
                     </div>
-                    <button type="button" className="btn-secondary" onClick={handleAddDependant} style={{ justifyContent: 'center' }}>
-                      + Add Dependant to List
-                    </button>
-                  </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>You have not selected an HMO plan yet. Use the form on the right to enroll.</div>
+                  )}
                 </div>
 
-                {/* Dependant List Preview */}
-                {dependants.length > 0 && (
-                  <div style={{ display: 'grid', gap: '6px' }}>
-                    {dependants.map((d, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', backgroundColor: 'var(--bg-primary)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>
-                        <span><strong>{d.name}</strong> ({d.relationship})</span>
-                        <button type="button" onClick={() => handleRemoveDependant(i)} style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>Remove</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="card">
+                  <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                    <Users size={18} color="var(--accent)" /> My Registered Family Dependants ({dependants.length})
+                  </h3>
+                  {dependants.length === 0 ? (
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>
+                      No family dependants registered under your health plan. Add your Spouse or Children using the form.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                      {dependants.map((d, i) => (
+                        <div key={i} style={{ backgroundColor: 'var(--bg-primary)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', position: 'relative' }}>
+                          <div style={{ fontWeight: 700, fontSize: '14px' }}>{d.name}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Relationship: <strong>{d.relationship}</strong> • DOB: {d.dob}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDependant(i)}
+                            style={{ position: 'absolute', top: '12px', right: '12px', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                            title="Remove Dependant"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                <button type="submit" disabled={submitting} className="btn-primary" style={{ justifyContent: 'center' }}>
-                  {submitting ? 'Saving Enrollment...' : 'Save Health Enrollment'}
-                </button>
-              </form>
+              {/* Employee Dependant Registration Form */}
+              <div className="card">
+                <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  <Heart size={18} color="var(--accent)" /> Update HMO Plan & Dependants
+                </h3>
+
+                {enrollMsg && <div style={{ fontSize: '12px', backgroundColor: 'var(--bg-tertiary)', padding: '10px', borderRadius: 'var(--radius-md)', marginBottom: '12px' }}>{enrollMsg}</div>}
+
+                <form onSubmit={handleEnroll} style={{ display: 'grid', gap: '16px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Select HMO Tier</label>
+                    <select className="form-control" value={selectedPlanId} onChange={(e) => setSelectedPlanId(e.target.value)}>
+                      {plans.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.provider} ({p.tier} Tier - ₦{p.monthlyCost.toLocaleString()}/mo)</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                    <label className="form-label">Add Spouse / Child</label>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      <input className="form-control" placeholder="Full Legal Name" value={depName} onChange={(e) => setDepName(e.target.value)} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <select className="form-control" value={depRel} onChange={(e) => setDepRel(e.target.value as any)}>
+                          <option value="Spouse">Spouse</option>
+                          <option value="Child">Child</option>
+                        </select>
+                        <input type="date" className="form-control" value={depDob} onChange={(e) => setDepDob(e.target.value)} />
+                      </div>
+                      <button type="button" className="btn-secondary" onClick={handleAddDependant} style={{ justifyContent: 'center' }}>
+                        + Add Dependant to List
+                      </button>
+                    </div>
+                  </div>
+
+                  <button type="submit" disabled={submitting} className="btn-primary" style={{ justifyContent: 'center' }}>
+                    {submitting ? 'Saving Enrollment...' : 'Save Health Enrollment'}
+                  </button>
+                </form>
+              </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* TAB 2: MEDICAL EMERGENCY CLAIMS & REFUNDS */}
+      {/* TAB 2: MEDICAL EMERGENCY CLAIMS & REFUNDS (SCOPED FOR EMPLOYEE VS HR) */}
       {activeTab === 'claims' && (
         <div className="table-card">
           <div className="table-header-area">
-            <h3 className="chart-title">Out-of-Pocket Emergency Refund Claims ({claims.length})</h3>
+            <h3 className="chart-title">
+              {isAdmin ? `All Staff Out-of-Pocket Emergency Claims (${visibleClaims.length})` : `My Emergency Medical Claims (${visibleClaims.length})`}
+            </h3>
           </div>
           <div className="table-responsive">
             <table className="custom-table" style={{ fontSize: '13px' }}>
               <thead>
                 <tr>
                   <th>Claim ID</th>
-                  <th>Employee</th>
+                  {isAdmin && <th>Employee</th>}
                   <th>Hospital Name</th>
                   <th>Diagnosis / Emergency</th>
-                  <th>Amount (₦)</th>
-                  <th>Receipt</th>
+                  <th>Claim Amount</th>
                   <th>Status</th>
                   {isAdmin && <th style={{ textAlign: 'right' }}>Action</th>}
                 </tr>
               </thead>
               <tbody>
-                {claims.map((c: any) => {
-                  const emp = employees.find((e: any) => e.id === c.employeeId);
-                  return (
-                    <tr key={c.id}>
-                      <td><strong>{c.id}</strong></td>
-                      <td><strong>{emp?.name || c.employeeId}</strong></td>
-                      <td>{c.hospitalName}</td>
-                      <td>{c.diagnosis}</td>
-                      <td style={{ fontWeight: 700, color: 'var(--primary)' }}>₦{c.amount.toLocaleString()}</td>
-                      <td>
-                        <span style={{ fontSize: '11px', color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer' }}>
-                          View Receipt PDF
-                        </span>
-                      </td>
-                      <td><span className={`badge ${c.status === 'Approved & Refunded' ? 'badge-completed' : 'badge-pending'}`}>{c.status}</span></td>
-                      {isAdmin && (
-                        <td style={{ textAlign: 'right' }}>
-                          <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setReviewClaim(c)}>
-                            Review / Refund
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
+                {visibleClaims.length === 0 ? (
+                  <tr>
+                    <td colSpan={isAdmin ? 7 : 5} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      No emergency medical refund claims found.
+                    </td>
+                  </tr>
+                ) : (
+                  visibleClaims.map((c: any) => {
+                    const emp = employees.find((e: any) => e.id === c.employeeId);
+                    return (
+                      <tr key={c.id}>
+                        <td><strong>{c.id}</strong></td>
+                        {isAdmin && <td><strong>{emp?.name || c.employeeId}</strong></td>}
+                        <td>{c.hospitalName}</td>
+                        <td>{c.diagnosis}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--primary)' }}>₦{c.amount.toLocaleString()}</td>
+                        <td><span className={`badge ${c.status === 'Approved & Refunded' ? 'badge-completed' : 'badge-pending'}`}>{c.status}</span></td>
+                        {isAdmin && (
+                          <td style={{ textAlign: 'right' }}>
+                            <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setReviewClaim(c)}>
+                              Review / Refund
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
