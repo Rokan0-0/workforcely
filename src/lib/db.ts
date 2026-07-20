@@ -255,6 +255,18 @@ export interface EWARequest {
   requestDate: string;
 }
 
+export interface HMOClaim {
+  id: string;
+  employeeId: string;
+  claimDate: string;
+  hospitalName: string;
+  diagnosis: string;
+  amount: number;
+  receiptUrl?: string;
+  status: 'Pending HR Review' | 'Approved & Refunded' | 'Rejected';
+  outcomeNote?: string;
+}
+
 export interface DatabaseSchema {
   departments: Department[];
   employees: Employee[];
@@ -271,6 +283,7 @@ export interface DatabaseSchema {
   trainingEnrollments: TrainingEnrollment[];
   hmoPlans: HMOPlan[];
   hmoEnrollments: EmployeeHMOEnrollment[];
+  hmoClaims: HMOClaim[];
   disciplinaryQueries: DisciplinaryQuery[];
   ewaRequests: EWARequest[];
 }
@@ -1324,6 +1337,30 @@ const getSeedData = (): DatabaseSchema => {
     }
   ];
 
+  const hmoClaims: HMOClaim[] = [
+    {
+      id: 'claim-1',
+      employeeId: 'emp-3',
+      claimDate: '2026-06-10',
+      hospitalName: 'St. Nicholas Hospital, Lagos',
+      diagnosis: 'Acute Malaria & Typhoid Out-of-Pocket Emergency Treatment',
+      amount: 45000,
+      receiptUrl: 'st_nicholas_receipt_45k.pdf',
+      status: 'Approved & Refunded',
+      outcomeNote: 'Verified emergency out-of-network treatment receipt. Approved for full reimbursement.'
+    },
+    {
+      id: 'claim-2',
+      employeeId: 'emp-6',
+      claimDate: '2026-06-18',
+      hospitalName: 'Redington Hospital, Victoria Island',
+      diagnosis: 'Dental Emergency Extraction',
+      amount: 28000,
+      receiptUrl: 'redington_dental_receipt.pdf',
+      status: 'Pending HR Review'
+    }
+  ];
+
   return {
     departments,
     employees,
@@ -1340,6 +1377,7 @@ const getSeedData = (): DatabaseSchema => {
     trainingEnrollments,
     hmoPlans,
     hmoEnrollments,
+    hmoClaims,
     disciplinaryQueries,
     ewaRequests
   };
@@ -1359,6 +1397,7 @@ class JsonDatabase {
         // Ensure missing arrays exist if loading older db.json
         if (!this.data!.hmoPlans) this.data!.hmoPlans = getSeedData().hmoPlans;
         if (!this.data!.hmoEnrollments) this.data!.hmoEnrollments = getSeedData().hmoEnrollments;
+        if (!this.data!.hmoClaims) this.data!.hmoClaims = getSeedData().hmoClaims;
         if (!this.data!.disciplinaryQueries) this.data!.disciplinaryQueries = getSeedData().disciplinaryQueries;
         if (!this.data!.ewaRequests) this.data!.ewaRequests = getSeedData().ewaRequests;
         return this.data!;
@@ -1524,9 +1563,19 @@ class JsonDatabase {
     this.write(db);
   }
 
+  public getHmoClaims(): HMOClaim[] {
+    return this.read().hmoClaims || [];
+  }
+
   public updateHmoEnrollments(enrollments: EmployeeHMOEnrollment[]): void {
     const db = this.read();
     db.hmoEnrollments = enrollments;
+    this.write(db);
+  }
+
+  public updateHmoClaims(claims: HMOClaim[]): void {
+    const db = this.read();
+    db.hmoClaims = claims;
     this.write(db);
   }
 

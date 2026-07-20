@@ -219,11 +219,26 @@ export default function DashboardLayout({
     return 'Workforcely Management';
   };
 
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
+
   return (
     <SessionContext.Provider value={{ user, theme, toggleTheme, switchRole, loading, triggerRefresh, refreshFlag }}>
       <div className="app-shell">
+        {/* Mobile Backdrop Overlay */}
+        {mobileSidebarOpen && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
-        <aside className="sidebar">
+        <aside className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
           <div className="sidebar-brand">
             <span className="brand-dot"></span>
             Workforcely
@@ -237,7 +252,11 @@ export default function DashboardLayout({
                 const isActive = pathname === item.path;
                 return (
                   <li key={item.path}>
-                    <Link href={item.path} className={`menu-item ${isActive ? 'active' : ''}`}>
+                    <Link
+                      href={item.path}
+                      className={`menu-item ${isActive ? 'active' : ''}`}
+                      onClick={() => setMobileSidebarOpen(false)}
+                    >
                       <Icon className="menu-item-icon" />
                       <span>{item.label}</span>
                     </Link>
@@ -267,9 +286,18 @@ export default function DashboardLayout({
         {/* Main Workspace */}
         <div className="main-content">
           <header className="topbar">
-            <div className="page-title-area">
-              <h1 className="page-title">{getHeaderTitle()}</h1>
-              <p className="page-subtitle">Workforcely Demo Co • Nigerian SME Retail/Fintech</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                className="hamburger-btn"
+                onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+                title="Toggle Menu"
+              >
+                <Menu size={20} />
+              </button>
+              <div className="page-title-area">
+                <h1 className="page-title">{getHeaderTitle()}</h1>
+                <p className="page-subtitle">Workforcely Demo Co • Nigerian SME Retail/Fintech</p>
+              </div>
             </div>
 
             <div className="topbar-actions">

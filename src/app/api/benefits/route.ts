@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, EmployeeHMOEnrollment, EWARequest } from '@/lib/db';
+import { db, EmployeeHMOEnrollment, EWARequest, HMOClaim } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const hmoPlans = db.getHmoPlans();
   const hmoEnrollments = db.getHmoEnrollments();
+  const hmoClaims = db.getHmoClaims();
   const ewaRequests = db.getEwaRequests();
-  return NextResponse.json({ hmoPlans, hmoEnrollments, ewaRequests });
+  return NextResponse.json({ hmoPlans, hmoEnrollments, hmoClaims, ewaRequests });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, employeeId, planId, dependants, amount } = body;
+    const { action, employeeId, planId, dependants, amount, hospitalName, diagnosis, receiptUrl, claimId, status, outcomeNote } = body;
 
     const hmoEnrollments = db.getHmoEnrollments();
+    const hmoClaims = db.getHmoClaims();
     const ewaRequests = db.getEwaRequests();
 
     if (action === 'enrollHmo') {
@@ -21,7 +23,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Employee ID and Plan ID are required' }, { status: 400 });
       }
 
-      // Check existing
       const existingIdx = hmoEnrollments.findIndex(e => e.employeeId === employeeId);
       const newEnrollment: EmployeeHMOEnrollment = {
         id: existingIdx >= 0 ? hmoEnrollments[existingIdx].id : `hmo-en-${Date.now()}`,
@@ -41,6 +42,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, enrollment: newEnrollment });
     }
 
+    if (action === 'submitClaim') {
+      if (!employeeId || !hospitalName || !amount || !diagnosis) {
+        return NextResponse.json({ success: false, error: 'Employee ID, hospital name, diagnosis and amount are required' }, { status: 400 });
+      }
+
+      const newClaim: HMOClaim = {
+        id: `claim-${Date.now()}`,
+        employeeId,
+        claimDate: new Date().toISOString().split('T')[0],
+        hospitalName,
+        diagnosis,
+        amount: Number(amount),
+        receiptUrl: receiptUrl || 'medical_receipt.pdf',
+        status: 'Pending HR Review'
+      };
+
+      hmoClaims.push(newClaim);
+      db.updateHmoClaims(hmoClaims);
+      return NextResponse.json({ success: true, claim: newClaim });
+    }
+
+    if (action === 'updateClaimStatus') {
+      if (!claimId || !status) {
+        return NextResponse.json({ success: false, error: 'Claim ID and status are required' }, { status: 400 });
+      }
+
+      const claimIdx = hmoClaims.findIndex(c => c.id === claimId);
+      if (claimIdx === -1) {
+        return NextResponse.json({ success: false, error: 'Claim not found' }, { status: 404 });
+      }
+
+      hmoClaims[claimIdx].status = status;
+      if (outcomeNote) hmoClaims[claimIdx].outcomeNote = outcomeNote;
+
+      db.updateHmoClaims(hmoClaims);
+      return NextResponse.json({ success: true, claim: hmoClaims[claimIdx] });
+    }
+
     if (action === 'requestEwa') {
       if (!employeeId || !amount) {
         return NextResponse.json({ success: false, error: 'Employee ID and requested amount are required' }, { status: 400 });
@@ -52,7 +91,6 @@ export async function POST(request: NextRequest) {
       }
 
       const gross = employee.salary.base + employee.salary.housing + employee.salary.transport;
-      // Assume ~15 days worked in mid-month -> earned ~50%
       const maxEarned = Math.round(gross * 0.5);
       const reqAmt = Number(amount);
 
@@ -69,7 +107,7 @@ export async function POST(request: NextRequest) {
         month: new Date().toISOString().substring(0, 7),
         earnedAmount: maxEarned,
         requestedAmount: reqAmt,
-        fee: 500, // Fixed ₦500 transaction fee
+        fee: 500,
         status: 'Disbursed',
         requestDate: new Date().toISOString().split('T')[0]
       };
