@@ -43,7 +43,13 @@ export default function DashboardLayout({
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
 
   // Fetch notifications
   useEffect(() => {
@@ -218,13 +224,6 @@ export default function DashboardLayout({
     if (pathname.includes('/ai-assistant')) return 'AI Assistant';
     return 'Workforcely Management';
   };
-
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setMobileSidebarOpen(false);
-  }, [pathname]);
 
   return (
     <SessionContext.Provider value={{ user, theme, toggleTheme, switchRole, loading, triggerRefresh, refreshFlag }}>
