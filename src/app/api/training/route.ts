@@ -319,6 +319,24 @@ Return ONLY a JSON object conforming to this exact schema (no markdown formattin
       return NextResponse.json({ success: true, enrollment });
     }
 
+    if (action === 'resetCourse' || action === 'retakeCourse') {
+      if (!enrollmentId) {
+        return NextResponse.json({ success: false, error: 'Enrollment ID is required' }, { status: 400 });
+      }
+      const enrollment = enrollments[enrollmentIndex];
+      enrollment.status = 'In Progress';
+      enrollment.progress = 0;
+      enrollment.currentLessonIndex = 0;
+      enrollment.completedLessons = [];
+      enrollment.quizAttempts = 0;
+      enrollment.quizPassed = false;
+      enrollment.quizScore = undefined;
+      enrollment.certificate = undefined;
+
+      db.updateTrainingEnrollments(enrollments);
+      return NextResponse.json({ success: true, enrollment });
+    }
+
     return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 });

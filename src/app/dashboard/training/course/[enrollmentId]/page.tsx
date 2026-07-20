@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSession, getCachedData, setCachedData } from '../../../session-provider';
+import { useState, useEffect, useCallback } from 'react';
+import { useSession } from '../../../session-provider';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Award, Play, CheckCircle2, Lock, ArrowLeft, AlertCircle, ExternalLink, ChevronRight, Check } from 'lucide-react';
+import { BookOpen, Award, Play, CheckCircle2, Lock, ArrowLeft, AlertCircle, ExternalLink, ChevronRight, Check, RotateCcw } from 'lucide-react';
 
 function markdownToHtml(raw: string) {
   if (!raw) return '';
@@ -292,7 +292,7 @@ function downloadCertificate(certificate: any) {
 }
 
 export default function CoursePlayerPage({ params }: { params: { enrollmentId: string } }) {
-  const { enrollmentId } = params;
+  const enrollmentId = params?.enrollmentId;
   const { user, triggerRefresh } = useSession();
   const router = useRouter();
 
@@ -306,8 +306,10 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
   const [quizError, setQuizError] = useState<string | null>(null);
   const [simulatingId, setSimulatingId] = useState<string | null>(null);
 
-  const fetchTrainingData = async () => {
+  const fetchTrainingData = useCallback(async () => {
+    if (!enrollmentId) return;
     try {
+      setLoading(true);
       const [empRes, trainRes] = await Promise.all([
         fetch('/api/employees'),
         fetch('/api/training')
@@ -315,24 +317,27 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
       const empData = await empRes.json();
       const trainData = await trainRes.json();
 
-      const enroll = trainData.enrollments.find((e: any) => e.id === enrollmentId);
+      const enroll = trainData.enrollments?.find((e: any) => e.id === enrollmentId);
       if (enroll) {
         setEnrollment(enroll);
-        const crs = trainData.courses.find((c: any) => c.id === enroll.courseId);
+        const crs = trainData.courses?.find((c: any) => c.id === enroll.courseId);
         setCourse(crs);
-        const emp = empData.employees.find((e: any) => e.id === enroll.employeeId);
+        const emp = empData.employees?.find((e: any) => e.id === enroll.employeeId);
         setEmployee(emp);
+      } else {
+        setEnrollment(null);
+        setCourse(null);
       }
     } catch (err) {
       console.error('Failed to fetch training player details', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [enrollmentId]);
 
   useEffect(() => {
     fetchTrainingData();
-  }, [enrollmentId]);
+  }, [fetchTrainingData]);
 
   const handleCompleteLesson = async (moduleId: string) => {
     setSimulatingId(moduleId);
@@ -346,10 +351,33 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
       if (result.success) {
         await fetchTrainingData();
         triggerRefresh();
-        setSelectedModuleId(null); // Return to module list
+        setSelectedModuleId(null);
       }
     } catch (err) {
       console.error('Failed to complete lesson', err);
+    } finally {
+      setSimulatingId(null);
+    }
+  };
+
+  const handleRetakeCourse = async () => {
+    setSimulatingId(enrollmentId);
+    try {
+      const res = await fetch('/api/training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'retakeCourse', enrollmentId })
+      });
+      const result = await res.json();
+      if (result.success) {
+        setQuizAnswers({});
+        setQuizError(null);
+        setSelectedModuleId(null);
+        await fetchTrainingData();
+        triggerRefresh();
+      }
+    } catch (err) {
+      console.error('Failed to retake course', err);
     } finally {
       setSimulatingId(null);
     }
@@ -436,7 +464,7 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
       <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
         
         {/* Navigation Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
           <button 
             className="btn-secondary" 
             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', fontSize: '13px' }}
@@ -451,9 +479,17 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
             <ArrowLeft size={16} /> 
             {selectedModuleId ? 'Back to Module List' : 'Back to Training Dashboard'}
           </button>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>COURSE PROGRESS</span>
+            <button
+              className="btn-secondary"
+              onClick={handleRetakeCourse}
+              disabled={simulatingId === enrollmentId}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '6px 12px' }}
+            >
+              <RotateCcw size={14} /> Retake Course
+            </button>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>PROGRESS</span>
             <div style={{ width: '120px', height: '8px', backgroundColor: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
               <div style={{ width: `${enrollment.progress}%`, height: '100%', backgroundColor: 'var(--success)', transition: 'width 0.4s ease' }}></div>
             </div>
@@ -639,15 +675,19 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
                     <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
                       You scored <strong>{enrollment.quizScore}%</strong> (Passing Mark: {course.quiz.passMark}%).
                     </p>
-                    {enrollment.certificate && (
-                      <button 
-                        className="btn-primary" 
-                        onClick={() => downloadCertificate(enrollment.certificate)}
-                        style={{ justifySelf: 'start', marginTop: '6px' }}
-                      >
-                        Download Certificate
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      {enrollment.certificate && (
+                        <button 
+                          className="btn-primary" 
+                          onClick={() => downloadCertificate(enrollment.certificate)}
+                        >
+                          Download Certificate
+                        </button>
+                      )}
+                      <button className="btn-secondary" onClick={handleRetakeCourse}>
+                        <RotateCcw size={14} style={{ marginRight: '6px' }} /> Retake Quiz / Reset
                       </button>
-                    )}
+                    </div>
                   </div>
                 ) : (
                   <form 
@@ -658,7 +698,7 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
                       Please answer the following evaluation questions to verify your understanding. You have used <strong>{enrollment.quizAttempts ?? 0}</strong> of {course.quiz.maxAttempts} attempts.
                     </p>
 
-                    {course.quiz.questions.map((question: any, qIdx: number) => (
+                    {course.quiz.questions?.map((question: any, qIdx: number) => (
                       <div key={question.id} style={{ padding: '16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>
                         <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px' }}>{qIdx + 1}. {question.question}</div>
                         
@@ -696,14 +736,21 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
 
                     {quizError && <div style={{ color: 'var(--danger)', fontSize: '13px', fontWeight: 600 }}>{quizError}</div>}
                     
-                    <button 
-                      type="submit" 
-                      className="btn-primary" 
-                      disabled={enrollment.quizAttempts >= course.quiz.maxAttempts}
-                      style={{ justifySelf: 'start' }}
-                    >
-                      {enrollment.quizAttempts >= course.quiz.maxAttempts ? 'Retake Limit Reached' : 'Submit Quiz Answers'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button 
+                        type="submit" 
+                        className="btn-primary" 
+                        disabled={enrollment.quizAttempts >= course.quiz.maxAttempts}
+                      >
+                        {enrollment.quizAttempts >= course.quiz.maxAttempts ? 'Retake Limit Reached' : 'Submit Quiz Answers'}
+                      </button>
+
+                      {enrollment.quizAttempts >= course.quiz.maxAttempts && (
+                        <button type="button" className="btn-secondary" onClick={handleRetakeCourse}>
+                          <RotateCcw size={14} style={{ marginRight: '6px' }} /> Reset & Retake Course
+                        </button>
+                      )}
+                    </div>
                   </form>
                 )}
               </div>
@@ -723,6 +770,9 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
                       Download Certificate
                     </button>
                   )}
+                  <button className="btn-secondary" onClick={handleRetakeCourse}>
+                    <RotateCcw size={14} style={{ marginRight: '6px' }} /> Retake Course
+                  </button>
                   <button className="btn-secondary" onClick={() => router.push('/dashboard/training')}>
                     Return to Dashboard
                   </button>
@@ -798,11 +848,8 @@ export default function CoursePlayerPage({ params }: { params: { enrollmentId: s
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '24px' }}>
-                <p style={{ color: 'var(--text-muted)' }}>Lesson not found.</p>
-                <button className="btn-secondary" onClick={() => setSelectedModuleId(null)}>
-                  Go Back
-                </button>
+              <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                Select a lesson module from the syllabus list to begin.
               </div>
             )}
           </div>
