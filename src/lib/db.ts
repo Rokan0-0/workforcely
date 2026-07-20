@@ -212,6 +212,49 @@ export interface IncidentReport {
   history: IncidentHistoryEntry[];
 }
 
+export interface HMOPlan {
+  id: string;
+  provider: string;
+  tier: 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
+  monthlyCost: number;
+  hospitalCount: number;
+  coveredLimit: string;
+}
+
+export interface EmployeeHMOEnrollment {
+  id: string;
+  employeeId: string;
+  planId: string;
+  dependants: { name: string; relationship: 'Spouse' | 'Child'; dob: string }[];
+  enrolledDate: string;
+}
+
+export interface DisciplinaryQuery {
+  id: string;
+  employeeId: string;
+  issuedBy: string;
+  title: string;
+  category: 'Absence' | 'Negligence' | 'Misconduct' | 'Performance' | 'Policy Violation';
+  description: string;
+  issuedDate: string;
+  deadlineDate: string;
+  defenseText?: string;
+  defenseSubmittedDate?: string;
+  status: 'Pending Response' | 'Under HR Review' | 'Resolved' | 'Warning Issued' | 'Escalated';
+  resolutionNote?: string;
+}
+
+export interface EWARequest {
+  id: string;
+  employeeId: string;
+  month: string;
+  earnedAmount: number;
+  requestedAmount: number;
+  fee: number;
+  status: 'Approved' | 'Disbursed' | 'Rejected';
+  requestDate: string;
+}
+
 export interface DatabaseSchema {
   departments: Department[];
   employees: Employee[];
@@ -226,12 +269,15 @@ export interface DatabaseSchema {
   incidentReports: IncidentReport[];
   trainingCourses: TrainingCourse[];
   trainingEnrollments: TrainingEnrollment[];
+  hmoPlans: HMOPlan[];
+  hmoEnrollments: EmployeeHMOEnrollment[];
+  disciplinaryQueries: DisciplinaryQuery[];
+  ewaRequests: EWARequest[];
 }
 
 const DB_FILE = path.join(process.cwd(), 'db.json');
 
 // Progressive tax calculation based on Nigerian PAYE (simplified)
-// Tax rate averages roughly 12% for SME middle-income brackets after Consolidated Relief Allowance
 export function calculateNigerianTax(grossPay: number): number {
   if (grossPay <= 50000) return grossPay * 0.05;
   if (grossPay <= 100000) return 2500 + (grossPay - 50000) * 0.10;
@@ -243,6 +289,18 @@ export function calculateNigerianPension(salary: { base: number; housing: number
   // Pension Reform Act: 8% of Basic + Housing + Transport
   const monthlyGross = salary.base + salary.housing + salary.transport;
   return monthlyGross * 0.08;
+}
+
+export function calculateNigerianNHF(baseSalary: number): number {
+  return baseSalary * 0.025;
+}
+
+export function calculateNigerianNSITF(grossSalary: number): number {
+  return grossSalary * 0.01;
+}
+
+export function calculateNigerianITF(grossSalary: number): number {
+  return grossSalary * 0.01;
 }
 
 // Default Seed Data
@@ -1177,16 +1235,6 @@ const getSeedData = (): DatabaseSchema => {
       }
     },
     {
-      id: 'te-7',
-      courseId: 'tr-c4',
-      employeeId: 'emp-10',
-      status: 'In Progress',
-      progress: 40,
-      completedLessons: [],
-      quizAttempts: 0,
-      quizPassed: false
-    },
-    {
       id: 'te-8',
       courseId: 'tr-c5',
       employeeId: 'emp-3',
@@ -1205,6 +1253,77 @@ const getSeedData = (): DatabaseSchema => {
     }
   ];
 
+  const hmoPlans: HMOPlan[] = [
+    { id: 'hmo-1', provider: 'Reliance HMO', tier: 'Bronze', monthlyCost: 15000, hospitalCount: 450, coveredLimit: '₦1,200,000 / year' },
+    { id: 'hmo-2', provider: 'Hygeia HMO', tier: 'Silver', monthlyCost: 25000, hospitalCount: 850, coveredLimit: '₦2,500,000 / year' },
+    { id: 'hmo-3', provider: 'AXA Mansard Health', tier: 'Gold', monthlyCost: 45000, hospitalCount: 1200, coveredLimit: '₦5,000,000 / year' },
+    { id: 'hmo-4', provider: 'Leadway Health', tier: 'Platinum', monthlyCost: 75000, hospitalCount: 1800, coveredLimit: '₦10,000,000 / year' }
+  ];
+
+  const hmoEnrollments: EmployeeHMOEnrollment[] = [
+    {
+      id: 'hmo-en-1',
+      employeeId: 'emp-1',
+      planId: 'hmo-3',
+      dependants: [
+        { name: 'Obinna Obi', relationship: 'Spouse', dob: '1988-04-12' },
+        { name: 'Kamsi Obi', relationship: 'Child', dob: '2018-09-20' }
+      ],
+      enrolledDate: '2024-01-15'
+    },
+    {
+      id: 'hmo-en-2',
+      employeeId: 'emp-3',
+      planId: 'hmo-2',
+      dependants: [
+        { name: 'Ibrahim Abubakar', relationship: 'Spouse', dob: '1990-11-05' }
+      ],
+      enrolledDate: '2024-02-01'
+    }
+  ];
+
+  const disciplinaryQueries: DisciplinaryQuery[] = [
+    {
+      id: 'q-101',
+      employeeId: 'emp-8',
+      issuedBy: 'Chioma Obi (HR Admin)',
+      title: 'Unauthorized Absence and Missed Client Standup',
+      category: 'Absence',
+      description: 'You were absent from work without prior leave approval on Monday, June 8th, causing a disruption in the deployment schedule.',
+      issuedDate: '2026-06-09',
+      deadlineDate: '2026-06-11T17:00:00',
+      defenseText: 'I experienced a medical emergency with severe malaria on Monday morning and was admitted to the hospital clinic. I sent an email as soon as I received treatment.',
+      defenseSubmittedDate: '2026-06-10',
+      status: 'Under HR Review',
+      resolutionNote: 'Medical report verified by HR.'
+    },
+    {
+      id: 'q-102',
+      employeeId: 'emp-12',
+      issuedBy: 'Olumide Sowore (HR Executive)',
+      title: 'Repeated Tardiness and Late Check-ins',
+      category: 'Policy Violation',
+      description: 'Attendance logs indicate check-in times after 09:15 AM on three consecutive days without manager clearance.',
+      issuedDate: '2026-06-10',
+      deadlineDate: '2026-06-12T17:00:00',
+      status: 'Warning Issued',
+      resolutionNote: 'Written Warning issued to employee folder.'
+    }
+  ];
+
+  const ewaRequests: EWARequest[] = [
+    {
+      id: 'ewa-1',
+      employeeId: 'emp-6',
+      month: '2026-06',
+      earnedAmount: 180000,
+      requestedAmount: 50000,
+      fee: 500,
+      status: 'Disbursed',
+      requestDate: '2026-06-12'
+    }
+  ];
+
   return {
     departments,
     employees,
@@ -1218,7 +1337,11 @@ const getSeedData = (): DatabaseSchema => {
     notifications,
     incidentReports,
     trainingCourses,
-    trainingEnrollments
+    trainingEnrollments,
+    hmoPlans,
+    hmoEnrollments,
+    disciplinaryQueries,
+    ewaRequests
   };
 };
 
@@ -1233,6 +1356,11 @@ class JsonDatabase {
       if (fs.existsSync(DB_FILE)) {
         const fileContent = fs.readFileSync(DB_FILE, 'utf-8');
         this.data = JSON.parse(fileContent);
+        // Ensure missing arrays exist if loading older db.json
+        if (!this.data!.hmoPlans) this.data!.hmoPlans = getSeedData().hmoPlans;
+        if (!this.data!.hmoEnrollments) this.data!.hmoEnrollments = getSeedData().hmoEnrollments;
+        if (!this.data!.disciplinaryQueries) this.data!.disciplinaryQueries = getSeedData().disciplinaryQueries;
+        if (!this.data!.ewaRequests) this.data!.ewaRequests = getSeedData().ewaRequests;
         return this.data!;
       }
     } catch (err) {
@@ -1293,6 +1421,22 @@ class JsonDatabase {
 
   public getTrainingEnrollments(): TrainingEnrollment[] {
     return this.read().trainingEnrollments;
+  }
+
+  public getHmoPlans(): HMOPlan[] {
+    return this.read().hmoPlans;
+  }
+
+  public getHmoEnrollments(): EmployeeHMOEnrollment[] {
+    return this.read().hmoEnrollments;
+  }
+
+  public getDisciplinaryQueries(): DisciplinaryQuery[] {
+    return this.read().disciplinaryQueries;
+  }
+
+  public getEwaRequests(): EWARequest[] {
+    return this.read().ewaRequests;
   }
 
   public updateTrainingCourses(courses: TrainingCourse[]): void {
@@ -1377,6 +1521,24 @@ class JsonDatabase {
   public updateTrainingEnrollments(enrollments: TrainingEnrollment[]): void {
     const db = this.read();
     db.trainingEnrollments = enrollments;
+    this.write(db);
+  }
+
+  public updateHmoEnrollments(enrollments: EmployeeHMOEnrollment[]): void {
+    const db = this.read();
+    db.hmoEnrollments = enrollments;
+    this.write(db);
+  }
+
+  public updateDisciplinaryQueries(queries: DisciplinaryQuery[]): void {
+    const db = this.read();
+    db.disciplinaryQueries = queries;
+    this.write(db);
+  }
+
+  public updateEwaRequests(requests: EWARequest[]): void {
+    const db = this.read();
+    db.ewaRequests = requests;
     this.write(db);
   }
 }
