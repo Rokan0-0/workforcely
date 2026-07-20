@@ -600,7 +600,7 @@ export default function TrainingPage() {
               <button
                 className={`btn-secondary ${hrTab === 'ai-copilot' ? 'btn-primary' : ''}`}
                 onClick={() => setHrTab('ai-copilot')}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: hrTab === 'ai-copilot' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent', color: hrTab === 'ai-copilot' ? '#fff' : 'inherit' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: hrTab === 'ai-copilot' ? 'linear-gradient(135deg, #1e3a5f 0%, #14b8a6 100%)' : 'transparent', color: hrTab === 'ai-copilot' ? '#fff' : 'inherit' }}
               >
                 <Sparkles size={16} />
                 AI Course Co-pilot
@@ -999,8 +999,8 @@ export default function TrainingPage() {
           {hrTab === 'ai-copilot' && (
             <div className="card" style={{ maxWidth: '800px', margin: '0 auto' }}>
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <div style={{ display: 'inline-flex', padding: '12px', borderRadius: '50%', backgroundColor: 'var(--bg-tertiary)', marginBottom: '12px' }}>
-                  <Sparkles size={28} color="#a855f7" />
+                <div style={{ display: 'inline-flex', padding: '14px', borderRadius: '50%', backgroundColor: 'var(--accent-light)', marginBottom: '12px' }}>
+                  <Sparkles size={30} color="var(--accent)" />
                 </div>
                 <h2 className="chart-title">AI Course Co-pilot</h2>
                 <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '540px', margin: '6px auto 0' }}>
@@ -1049,7 +1049,8 @@ export default function TrainingPage() {
                     justifyContent: 'center',
                     padding: '14px',
                     fontSize: '15px',
-                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
+                    background: 'linear-gradient(135deg, #1e3a5f 0%, #14b8a6 100%)',
+                    boxShadow: '0 4px 14px rgba(20, 184, 166, 0.25)'
                   }}
                 >
                   {aiGenerating ? (
