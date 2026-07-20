@@ -69,6 +69,140 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, course: newCourse });
     }
 
+    if (action === 'generateAICourse') {
+      const { prompt, category, difficulty } = body;
+      if (!prompt) {
+        return NextResponse.json({ success: false, error: 'Topic or prompt is required for AI course generation' }, { status: 400 });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (apiKey) {
+        try {
+          const systemPrompt = `You are an expert Instructional Designer and Enterprise HR Trainer.
+Create a comprehensive, structured online training course based on the provided topic/prompt.
+Target Category: ${category || 'Technical'}
+Target Difficulty: ${difficulty || 'Intermediate'}
+
+Return ONLY a JSON object conforming to this exact schema (no markdown formatting code blocks):
+{
+  "title": "Course Title",
+  "description": "2-3 sentence overview of what the course covers and target audience.",
+  "category": "${category || 'Technical'}",
+  "difficulty": "${difficulty || 'Intermediate'}",
+  "duration": "Estimated total duration e.g. 3 hours",
+  "thumbnail": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=400&auto=format&fit=crop",
+  "modules": [
+    {
+      "id": "mod-1",
+      "title": "Lesson Title",
+      "duration": "35 min",
+      "content": "### Markdown Content for the lesson\n\nDetailed breakdown with bullet points, code or example scenario.\n\n- Key takeaway 1\n- Key takeaway 2",
+      "videoUrl": ""
+    }
+  ],
+  "quiz": {
+    "title": "Course Assessment Quiz",
+    "passMark": 80,
+    "maxAttempts": 3,
+    "questions": [
+      {
+        "id": "q-1",
+        "type": "multiple-choice",
+        "question": "Question text?",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": "Option A"
+      },
+      {
+        "id": "q-2",
+        "type": "true-false",
+        "question": "True or false statement?",
+        "correctAnswer": "True"
+      }
+    ]
+  }
+}`;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `${systemPrompt}\n\nTopic/Prompt: ${prompt}` }] }],
+              generationConfig: { responseMimeType: 'application/json' }
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            let text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              text = text.trim().replace(/^```json\s*/, '').replace(/```\s*$/, '');
+              const generated = JSON.parse(text);
+              return NextResponse.json({ success: true, course: generated });
+            }
+          }
+        } catch (err) {
+          console.error('Gemini AI course generation failed, using template engine fallback:', err);
+        }
+      }
+
+      // Smart Fallback Course Generator (If no API key or network error)
+      const fallbackTitle = prompt.charAt(0).toUpperCase() + prompt.slice(1);
+      const generated = {
+        title: `${fallbackTitle}: Core Masterclass`,
+        description: `Comprehensive training program covering essential strategies, compliance frameworks, and best practices for ${prompt}.`,
+        category: category || 'Technical',
+        difficulty: difficulty || 'Intermediate',
+        duration: '3 hours',
+        thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=400&auto=format&fit=crop',
+        modules: [
+          {
+            id: `mod-${Date.now()}-1`,
+            title: `Introduction to ${fallbackTitle}`,
+            duration: '35 min',
+            content: `### Overview of ${fallbackTitle}\n\nIn this introductory lesson, you will explore the foundational principles of ${prompt}.\n\n- Key Concepts and Vocabulary\n- Operational Workflow Standards\n- Organizational Impact`,
+            videoUrl: ''
+          },
+          {
+            id: `mod-${Date.now()}-2`,
+            title: 'Implementation & Practical Execution',
+            duration: '45 min',
+            content: `### Practical Scenarios\n\nLearn how to apply ${prompt} in day-to-day work scenarios.\n\n- Step 1: Planning and Risk Assessment\n- Step 2: Execution Guidelines\n- Step 3: Monitoring and Review`,
+            videoUrl: ''
+          },
+          {
+            id: `mod-${Date.now()}-3`,
+            title: 'Compliance & Quality Standards',
+            duration: '40 min',
+            content: `### Quality & Regulatory Guidelines\n\nEnsure all activities comply with regulatory and corporate standards.\n\n- Governance principles\n- Reporting obligations\n- Continuous Improvement`,
+            videoUrl: ''
+          }
+        ],
+        quiz: {
+          title: `${fallbackTitle} Knowledge Check`,
+          passMark: 80,
+          maxAttempts: 3,
+          questions: [
+            {
+              id: `q-${Date.now()}-1`,
+              type: 'multiple-choice',
+              question: `What is the primary objective of ${prompt}?`,
+              options: ['Efficiency & Quality', 'Delay Project', 'Ignore Policy', 'Increase Costs'],
+              correctAnswer: 'Efficiency & Quality'
+            },
+            {
+              id: `q-${Date.now()}-2`,
+              type: 'true-false',
+              question: `Compliance requirements apply to all team members undertaking ${prompt}.`,
+              correctAnswer: 'True'
+            }
+          ]
+        }
+      };
+
+      return NextResponse.json({ success: true, course: generated });
+    }
+
     if (action === 'enroll') {
       if (!employeeId || !courseId) {
         return NextResponse.json({ success: false, error: 'Employee ID and Course ID are required' }, { status: 400 });

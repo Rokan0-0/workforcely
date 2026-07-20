@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession, getCachedData, setCachedData } from '../session-provider';
-import { BookOpen, Award, Plus, UserPlus, Play } from 'lucide-react';
+import { BookOpen, Award, Plus, UserPlus, Play, Sparkles, Eye, CheckCircle2, Layers, HelpCircle, FileText, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const categories = ['All', 'Technical', 'Compliance', 'Soft Skills', 'Leadership', 'Other'];
@@ -299,22 +299,47 @@ export default function TrainingPage() {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // HR Navigation Tabs: 'catalog' | 'studio' | 'ai-copilot'
+  const [hrTab, setHrTab] = useState<'catalog' | 'studio' | 'ai-copilot'>('catalog');
+
+  // Studio Step Wizard: 1 (Essentials) | 2 (Curriculum) | 3 (Quiz) | 4 (Preview)
+  const [studioStep, setStudioStep] = useState<number>(1);
+
+  // Forms State
   const [enrollForm, setEnrollForm] = useState({ employeeId: '', courseId: '' });
   const [enrollSuccess, setEnrollSuccess] = useState<string | null>(null);
   const [enrollError, setEnrollError] = useState<string | null>(null);
-  const [courseBuilder, setCourseBuilder] = useState({ title: '', description: '', category: 'Technical', difficulty: 'Beginner', duration: '', thumbnail: '', provider: '', link: '', external: false });
+
+  const [courseBuilder, setCourseBuilder] = useState({
+    title: '',
+    description: '',
+    category: 'Technical',
+    difficulty: 'Beginner',
+    duration: '',
+    thumbnail: '',
+    provider: '',
+    link: '',
+    external: false
+  });
+
   const [builderModules, setBuilderModules] = useState<any[]>([]);
   const [builderModuleForm, setBuilderModuleForm] = useState({ title: '', content: '', duration: '', videoUrl: '' });
   const [builderQuiz, setBuilderQuiz] = useState({ title: 'Course Quiz', passMark: 70, maxAttempts: 3, questions: [] as any[] });
   const [quizQuestionForm, setQuizQuestionForm] = useState({ type: 'multiple-choice', question: '', options: '', correctAnswer: '' });
   const [builderMessage, setBuilderMessage] = useState<string | null>(null);
+
+  // AI Co-pilot state
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiCategory, setAiCategory] = useState('Technical');
+  const [aiDifficulty, setAiDifficulty] = useState('Intermediate');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+
+  // Filter & Student LMS State
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterDifficulty, setFilterDifficulty] = useState('All');
-  const [activeEnrollmentId, setActiveEnrollmentId] = useState<string | null>(null);
-  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
-  const [quizError, setQuizError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [simulatingId, setSimulatingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -333,7 +358,7 @@ export default function TrainingPage() {
         const result = { employees: empData.employees, departments: empData.departments, courses: trainData.courses, enrollments: trainData.enrollments };
         setData(result);
         setCachedData('/api/training-dashboard', result);
-        if (empData.employees.length > 0 && trainData.courses.length > 0) {
+        if (empData.employees?.length > 0 && trainData.courses?.length > 0) {
           setEnrollForm({ employeeId: empData.employees[0].id, courseId: trainData.courses[0].id });
         }
       } catch (err) {
@@ -352,6 +377,7 @@ export default function TrainingPage() {
     setBuilderQuiz({ title: 'Course Quiz', passMark: 70, maxAttempts: 3, questions: [] });
     setQuizQuestionForm({ type: 'multiple-choice', question: '', options: '', correctAnswer: '' });
     setBuilderMessage(null);
+    setStudioStep(1);
   };
 
   const handleEnrollSubmit = async (e: React.FormEvent) => {
@@ -379,7 +405,7 @@ export default function TrainingPage() {
 
   const handleAddModule = () => {
     if (!builderModuleForm.title || !builderModuleForm.duration) {
-      setBuilderMessage('Module title and duration are required.');
+      setBuilderMessage('Lesson title and duration are required.');
       return;
     }
     setBuilderModules(prev => [...prev, { ...builderModuleForm, id: `mod-${Date.now()}` }]);
@@ -405,7 +431,10 @@ export default function TrainingPage() {
       return;
     }
 
-    setBuilderQuiz(prev => ({ ...prev, questions: [...prev.questions, { id: `q-${Date.now()}`, type: quizQuestionForm.type, question: quizQuestionForm.question, options, correctAnswer: quizQuestionForm.correctAnswer }] }));
+    setBuilderQuiz(prev => ({
+      ...prev,
+      questions: [...prev.questions, { id: `q-${Date.now()}`, type: quizQuestionForm.type, question: quizQuestionForm.question, options, correctAnswer: quizQuestionForm.correctAnswer }]
+    }));
     setQuizQuestionForm({ type: 'multiple-choice', question: '', options: '', correctAnswer: '' });
     setBuilderMessage(null);
   };
@@ -414,9 +443,10 @@ export default function TrainingPage() {
     setBuilderQuiz(prev => ({ ...prev, questions: prev.questions.filter((q) => q.id !== id) }));
   };
 
-  const handleCreateCourse = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateCourse = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setBuilderMessage(null);
+
     if (courseBuilder.external) {
       if (!courseBuilder.title || !courseBuilder.description || !courseBuilder.duration || !courseBuilder.provider || !courseBuilder.link) {
         setBuilderMessage('Course title, description, duration, provider, and link are required for external courses.');
@@ -444,8 +474,9 @@ export default function TrainingPage() {
       });
       const result = await res.json();
       if (result.success) {
-        setBuilderMessage('Course created successfully.');
+        setBuilderMessage('Course created successfully!');
         resetBuilder();
+        setHrTab('catalog');
         triggerRefresh();
       } else {
         setBuilderMessage(result.error || 'Failed to create course.');
@@ -455,69 +486,61 @@ export default function TrainingPage() {
     }
   };
 
-  const handleStartTraining = async (enrollmentId: string) => {
-    setSimulatingId(enrollmentId);
-    try {
-      const res = await fetch('/api/training', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'startTraining', enrollmentId })
-      });
-      const result = await res.json();
-      if (result.success) {
-        setActiveEnrollmentId(enrollmentId);
-        setQuizAnswers({});
-        triggerRefresh();
-      }
-    } catch (err) {
-      console.error('Failed to start training', err);
-    } finally {
-      setSimulatingId(null);
-    }
-  };
-
-  const handleCompleteLesson = async (enrollmentId: string, moduleId: string) => {
-    setSimulatingId(enrollmentId);
-    try {
-      const res = await fetch('/api/training', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'completeLesson', enrollmentId, moduleId })
-      });
-      const result = await res.json();
-      if (result.success) {
-        triggerRefresh();
-      }
-    } catch (err) {
-      console.error('Failed to complete lesson', err);
-    } finally {
-      setSimulatingId(null);
-    }
-  };
-
-  const handleSubmitQuiz = async (enrollmentId: string, quiz: any) => {
-    setQuizError(null);
-    const missingAnswers = quiz.questions.some((question: any) => !quizAnswers[question.id]);
-    if (missingAnswers) {
-      setQuizError('Please answer every quiz question before submitting.');
+  const handleGenerateAICourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiPrompt) {
+      setAiMessage('Please enter a course topic or learning goal.');
       return;
     }
+    setAiGenerating(true);
+    setAiMessage(null);
 
     try {
       const res = await fetch('/api/training', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submitQuiz', enrollmentId, answers: quizAnswers })
+        body: JSON.stringify({
+          action: 'generateAICourse',
+          prompt: aiPrompt,
+          category: aiCategory,
+          difficulty: aiDifficulty
+        })
       });
       const result = await res.json();
-      if (!result.success) {
-        setQuizError(result.error || 'Quiz submission failed.');
+
+      if (result.success && result.course) {
+        const generated = result.course;
+        setCourseBuilder({
+          title: generated.title || '',
+          description: generated.description || '',
+          category: generated.category || aiCategory,
+          difficulty: generated.difficulty || aiDifficulty,
+          duration: generated.duration || '3 hours',
+          thumbnail: generated.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=400&auto=format&fit=crop',
+          provider: '',
+          link: '',
+          external: false
+        });
+
+        setBuilderModules(generated.modules || []);
+        if (generated.quiz) {
+          setBuilderQuiz({
+            title: generated.quiz.title || 'Course Quiz',
+            passMark: generated.quiz.passMark || 80,
+            maxAttempts: generated.quiz.maxAttempts || 3,
+            questions: generated.quiz.questions || []
+          });
+        }
+        setAiMessage('Course generated! Transferred to Course Studio for your final review & publish.');
+        setHrTab('studio');
+        setStudioStep(1);
       } else {
-        setQuizError(null);
-        triggerRefresh();
+        setAiMessage(result.error || 'Failed to generate AI course.');
       }
     } catch (err) {
-      setQuizError('Network error, please try again.');
+      setAiMessage('Network error during AI generation.');
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -539,13 +562,6 @@ export default function TrainingPage() {
   const completionRate = totalEnrollments ? Math.round((completedCount / totalEnrollments) * 100) : 0;
   const quizScores = enrollments.filter((e: any) => e.quizScore !== undefined).map((e: any) => e.quizScore);
   const averageQuizScore = quizScores.length ? Math.round(quizScores.reduce((sum: number, score: number) => sum + score, 0) / quizScores.length) : 0;
-  const stopPoints = enrollments.filter((e: any) => e.status !== 'Completed').reduce((memo: Record<string, number>, enrollment: any) => {
-    const course = courses.find((c: any) => c.id === enrollment.courseId);
-    const stopLesson = course?.modules?.[enrollment.completedLessons?.length ?? 0]?.title || (course?.quiz ? 'Quiz' : 'Start');
-    memo[stopLesson] = (memo[stopLesson] || 0) + 1;
-    return memo;
-  }, {} as Record<string, number>);
-  const dropOffPoint = Object.entries(stopPoints as Record<string, number>).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
   const totalCourses = courses.length;
   const enrolledCount = enrollments.length;
 
@@ -553,136 +569,503 @@ export default function TrainingPage() {
     <div className="page-container">
       {isAdmin ? (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', alignItems: 'start' }}>
-            <div className="table-card">
-              <div className="table-header-area">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Award size={18} color="var(--primary)" />
-                  <h2 className="chart-title">Training LMS Overview</h2>
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px', padding: '20px' }}>
+          {/* HR Top Navigation Tabs */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid var(--border-color)',
+            paddingBottom: '12px',
+            marginBottom: '24px',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className={`btn-secondary ${hrTab === 'catalog' ? 'btn-primary' : ''}`}
+                onClick={() => setHrTab('catalog')}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <BookOpen size={16} />
+                Overview & Catalog
+              </button>
+              <button
+                className={`btn-secondary ${hrTab === 'studio' ? 'btn-primary' : ''}`}
+                onClick={() => setHrTab('studio')}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <Layers size={16} />
+                Course Creation Studio
+              </button>
+              <button
+                className={`btn-secondary ${hrTab === 'ai-copilot' ? 'btn-primary' : ''}`}
+                onClick={() => setHrTab('ai-copilot')}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: hrTab === 'ai-copilot' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent', color: hrTab === 'ai-copilot' ? '#fff' : 'inherit' }}
+              >
+                <Sparkles size={16} />
+                AI Course Co-pilot
+              </button>
+            </div>
+            {hrTab === 'catalog' && (
+              <button className="btn-primary" onClick={() => { resetBuilder(); setHrTab('studio'); }}>
+                <Plus size={16} /> Create New Course
+              </button>
+            )}
+          </div>
+
+          {/* TAB 1: OVERVIEW & CATALOG */}
+          {hrTab === 'catalog' && (
+            <div style={{ display: 'grid', gap: '24px' }}>
+              {/* Metrics Header */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <div className="metric-card"><strong>{totalCourses}</strong><p>Courses Available</p></div>
                 <div className="metric-card"><strong>{enrolledCount}</strong><p>Total Enrollments</p></div>
                 <div className="metric-card"><strong>{completionRate}%</strong><p>Completion Rate</p></div>
                 <div className="metric-card"><strong>{averageQuizScore}%</strong><p>Average Quiz Score</p></div>
-                <div className="metric-card" style={{ gridColumn: 'span 2' }}><strong>{dropOffPoint}</strong><p>Most Common Drop-off Point</p></div>
+              </div>
+
+              {/* Quick Enroll Card */}
+              <div className="card">
+                <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <UserPlus size={18} color="var(--primary)" />
+                  Manual Employee Enrollment
+                </h3>
+                {enrollSuccess && <div style={{ color: 'var(--success)', fontSize: '13px', marginBottom: '10px' }}>{enrollSuccess}</div>}
+                {enrollError && <div style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '10px' }}>{enrollError}</div>}
+                <form onSubmit={handleEnrollSubmit} style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ flex: 1, minWidth: '220px' }}>
+                    <label className="form-label">Select Employee</label>
+                    <select className="form-control" value={enrollForm.employeeId} onChange={(e) => setEnrollForm(prev => ({ ...prev, employeeId: e.target.value }))}>
+                      {employees.map((emp: any) => <option key={emp.id} value={emp.id}>{emp.name} ({emp.email})</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ flex: 1, minWidth: '220px' }}>
+                    <label className="form-label">Select Course</label>
+                    <select className="form-control" value={enrollForm.courseId} onChange={(e) => setEnrollForm(prev => ({ ...prev, courseId: e.target.value }))}>
+                      {courses.map((course: any) => <option key={course.id} value={course.id}>{course.title} ({course.category})</option>)}
+                    </select>
+                  </div>
+                  <button type="submit" className="btn-primary" style={{ height: '42px', minWidth: '160px', justifyContent: 'center' }}>
+                    Enroll Employee
+                  </button>
+                </form>
+              </div>
+
+              {/* Course Catalog Table */}
+              <div className="table-card">
+                <div className="table-header-area">
+                  <h3 className="chart-title">Course Catalog Directory</h3>
+                </div>
+                <div className="table-responsive">
+                  <table className="custom-table" style={{ fontSize: '13px' }}>
+                    <thead><tr><th>Title</th><th>Category</th><th>Difficulty</th><th>Duration</th><th>Lessons</th><th>Quiz Attached</th></tr></thead>
+                    <tbody>{courses.map((course: any) => (
+                      <tr key={course.id}>
+                        <td><strong>{course.title}</strong><div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{course.description}</div></td>
+                        <td><span className="badge badge-applied">{course.category || 'Other'}</span></td>
+                        <td>{course.difficulty || 'Beginner'}</td>
+                        <td>{course.duration}</td>
+                        <td>{course.external ? 'External' : (course.modules?.length ?? 0)}</td>
+                        <td>{course.quiz ? 'Yes' : 'No'}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Employee Status Table */}
+              <div className="table-card">
+                <div className="table-header-area">
+                  <h3 className="chart-title">Employee Training Progress & Certificates</h3>
+                </div>
+                <div className="table-responsive">
+                  <table className="custom-table" style={{ fontSize: '13px' }}>
+                    <thead><tr><th>Employee</th><th>Course</th><th>Status</th><th>Progress</th><th>Quiz Score</th><th>Certificate</th></tr></thead>
+                    <tbody>{enrollments.map((enrollment: any) => {
+                      const employee = employees.find((emp: any) => emp.id === enrollment.employeeId);
+                      const course = courses.find((course: any) => course.id === enrollment.courseId);
+                      return (
+                        <tr key={enrollment.id}>
+                          <td><strong>{employee?.name || 'Unknown'}</strong></td>
+                          <td>{course?.title || 'Unknown Course'}</td>
+                          <td><span className={`badge ${enrollment.status === 'Completed' ? 'badge-completed' : 'badge-inprogress'}`}>{enrollment.status}</span></td>
+                          <td>{enrollment.progress}%</td>
+                          <td>{enrollment.quizScore !== undefined ? `${enrollment.quizScore}%` : 'N/A'}</td>
+                          <td>
+                            {enrollment.certificate ? (
+                              <button className="btn-secondary" style={{ fontSize: '11px', padding: '4px 8px' }} onClick={() => downloadCertificate(enrollment.certificate)}>
+                                Download PDF/HTML
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Incomplete</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}</tbody>
+                  </table>
+                </div>
               </div>
             </div>
+          )}
 
-            <div className="card">
-              <h3 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}><Plus size={18} color="var(--primary)" />Create a New Course</h3>
-              {builderMessage && <div style={{ color: 'var(--text)', backgroundColor: 'var(--bg-tertiary)', padding: '10px', borderRadius: 'var(--radius-md)', fontSize: '12px', marginBottom: '12px' }}>{builderMessage}</div>}
-              <form onSubmit={handleCreateCourse} style={{ display: 'grid', gap: '16px' }}>
-                <div className="form-group"><label className="form-label">Course Title</label><input className="form-control" value={courseBuilder.title} onChange={(e) => setCourseBuilder(prev => ({ ...prev, title: e.target.value }))} /></div>
-                <div className="form-group"><label className="form-label">Description</label><textarea className="form-control" rows={3} value={courseBuilder.description} onChange={(e) => setCourseBuilder(prev => ({ ...prev, description: e.target.value }))} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group"><label className="form-label">Category</label><select className="form-control" value={courseBuilder.category} onChange={(e) => setCourseBuilder(prev => ({ ...prev, category: e.target.value }))}>{categories.filter((c) => c !== 'All').map((category) => <option key={category} value={category}>{category}</option>)}</select></div>
-                  <div className="form-group"><label className="form-label">Difficulty</label><select className="form-control" value={courseBuilder.difficulty} onChange={(e) => setCourseBuilder(prev => ({ ...prev, difficulty: e.target.value }))}>{difficulties.filter((d) => d !== 'All').map((difficulty) => <option key={difficulty} value={difficulty}>{difficulty}</option>)}</select></div>
+          {/* TAB 2: COURSE CREATION STUDIO (WIZARD) */}
+          {hrTab === 'studio' && (
+            <div className="card" style={{ maxWidth: '900px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div>
+                  <h2 className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Layers size={20} color="var(--primary)" />
+                    Course Creation Studio
+                  </h2>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                    Design custom training programs with rich modules, markdown text, video embeds, and evaluations.
+                  </p>
                 </div>
-                <div className="form-group"><label className="form-label">Estimated Duration</label><input className="form-control" value={courseBuilder.duration} onChange={(e) => setCourseBuilder(prev => ({ ...prev, duration: e.target.value }))} placeholder="e.g. 3 hours" /></div>
-                <div className="form-group"><label className="form-label">Thumbnail URL</label><input className="form-control" value={courseBuilder.thumbnail} onChange={(e) => setCourseBuilder(prev => ({ ...prev, thumbnail: e.target.value }))} placeholder="Paste image URL" /></div>
+                <button className="btn-secondary" style={{ fontSize: '12px' }} onClick={resetBuilder}>Reset Form</button>
+              </div>
 
-                {/* External Course Toggle */}
-                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-                  <input
-                    type="checkbox"
-                    id="external-toggle"
-                    checked={courseBuilder.external}
-                    onChange={(e) => setCourseBuilder(prev => ({ ...prev, external: e.target.checked }))}
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                  />
-                  <label htmlFor="external-toggle" style={{ fontWeight: 600, fontSize: '13px', cursor: 'pointer', userSelect: 'none' }}>
-                    External Course (e.g. Udemy, Coursera)
-                  </label>
+              {/* Wizard Steps Indicator */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+                {[
+                  { step: 1, title: '1. Basic Details', icon: BookOpen },
+                  { step: 2, title: '2. Curriculum & Lessons', icon: FileText },
+                  { step: 3, title: '3. Quiz & Evaluation', icon: HelpCircle },
+                  { step: 4, title: '4. Preview & Publish', icon: Eye }
+                ].map((s) => {
+                  const IconComp = s.icon;
+                  const isActive = studioStep === s.step;
+                  const isDone = studioStep > s.step;
+                  return (
+                    <button
+                      key={s.step}
+                      type="button"
+                      onClick={() => setStudioStep(s.step)}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        border: 'none',
+                        backgroundColor: isActive ? 'var(--primary)' : isDone ? 'var(--bg-secondary)' : 'var(--bg-tertiary)',
+                        color: isActive ? '#fff' : isDone ? 'var(--primary)' : 'var(--text-muted)',
+                        fontWeight: isActive || isDone ? 700 : 500,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all var(--transition-fast)'
+                      }}
+                    >
+                      <IconComp size={15} />
+                      {s.title}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {builderMessage && (
+                <div style={{ color: 'var(--text)', backgroundColor: 'var(--bg-tertiary)', padding: '12px', borderRadius: 'var(--radius-md)', fontSize: '13px', marginBottom: '20px' }}>
+                  {builderMessage}
                 </div>
+              )}
 
-                {courseBuilder.external ? (
-                  <>
+              {/* STEP 1: BASIC DETAILS */}
+              {studioStep === 1 && (
+                <div style={{ display: 'grid', gap: '18px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Course Title *</label>
+                    <input className="form-control" placeholder="e.g. Data Protection & Cybersecurity Essentials" value={courseBuilder.title} onChange={(e) => setCourseBuilder(prev => ({ ...prev, title: e.target.value }))} />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Description *</label>
+                    <textarea className="form-control" rows={3} placeholder="Detailed course summary and key objectives..." value={courseBuilder.description} onChange={(e) => setCourseBuilder(prev => ({ ...prev, description: e.target.value }))} />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div className="form-group">
-                      <label className="form-label">Provider Name</label>
-                      <input
-                        className="form-control"
-                        placeholder="e.g. Udemy, Coursera"
-                        value={courseBuilder.provider}
-                        onChange={(e) => setCourseBuilder(prev => ({ ...prev, provider: e.target.value }))}
-                      />
+                      <label className="form-label">Category</label>
+                      <select className="form-control" value={courseBuilder.category} onChange={(e) => setCourseBuilder(prev => ({ ...prev, category: e.target.value }))}>
+                        {categories.filter((c) => c !== 'All').map((category) => <option key={category} value={category}>{category}</option>)}
+                      </select>
                     </div>
+
                     <div className="form-group">
-                      <label className="form-label">Course Link / URL</label>
-                      <input
-                        className="form-control"
-                        placeholder="e.g. https://www.udemy.com/course/..."
-                        value={courseBuilder.link}
-                        onChange={(e) => setCourseBuilder(prev => ({ ...prev, link: e.target.value }))}
-                      />
+                      <label className="form-label">Difficulty Level</label>
+                      <select className="form-control" value={courseBuilder.difficulty} onChange={(e) => setCourseBuilder(prev => ({ ...prev, difficulty: e.target.value }))}>
+                        {difficulties.filter((d) => d !== 'All').map((difficulty) => <option key={difficulty} value={difficulty}>{difficulty}</option>)}
+                      </select>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><strong>Course Lessons</strong><button type="button" className="btn-secondary" style={{ fontSize: '12px', padding: '8px 10px' }} onClick={handleAddModule}>Add Lesson</button></div>
-                      <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
-                        <input className="form-control" placeholder="Lesson title" value={builderModuleForm.title} onChange={(e) => setBuilderModuleForm(prev => ({ ...prev, title: e.target.value }))} />
-                        <input className="form-control" placeholder="Lesson duration" value={builderModuleForm.duration} onChange={(e) => setBuilderModuleForm(prev => ({ ...prev, duration: e.target.value }))} />
-                        <textarea className="form-control" rows={3} placeholder="Lesson content (supports markdown)" value={builderModuleForm.content} onChange={(e) => setBuilderModuleForm(prev => ({ ...prev, content: e.target.value }))} />
-                        <input className="form-control" placeholder="Optional YouTube embed URL" value={builderModuleForm.videoUrl} onChange={(e) => setBuilderModuleForm(prev => ({ ...prev, videoUrl: e.target.value }))} />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="form-group">
+                      <label className="form-label">Estimated Duration *</label>
+                      <input className="form-control" placeholder="e.g. 2.5 hours" value={courseBuilder.duration} onChange={(e) => setCourseBuilder(prev => ({ ...prev, duration: e.target.value }))} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Thumbnail Image URL</label>
+                      <input className="form-control" placeholder="https://images.unsplash.com/..." value={courseBuilder.thumbnail} onChange={(e) => setCourseBuilder(prev => ({ ...prev, thumbnail: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
+                    <input
+                      type="checkbox"
+                      id="studio-external"
+                      checked={courseBuilder.external}
+                      onChange={(e) => setCourseBuilder(prev => ({ ...prev, external: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="studio-external" style={{ fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                      External Course (e.g. Coursera, Udemy)
+                    </label>
+                  </div>
+
+                  {courseBuilder.external && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="form-group">
+                        <label className="form-label">Provider Name *</label>
+                        <input className="form-control" placeholder="e.g. Udemy" value={courseBuilder.provider} onChange={(e) => setCourseBuilder(prev => ({ ...prev, provider: e.target.value }))} />
                       </div>
-                      {builderModules.length > 0 && (<div style={{ marginTop: '16px', display: 'grid', gap: '10px' }}>{builderModules.map((module) => (<div key={module.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', backgroundColor: 'var(--bg-primary)', padding: '12px 14px', borderRadius: 'var(--radius-sm)' }}><div><div style={{ fontWeight: 700 }}>{module.title}</div><div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{module.duration}</div></div><button type="button" className="btn-secondary" onClick={() => handleRemoveModule(module.id)}>Remove</button></div>))}</div>)}
+                      <div className="form-group">
+                        <label className="form-label">External Course URL *</label>
+                        <input className="form-control" placeholder="https://..." value={courseBuilder.link} onChange={(e) => setCourseBuilder(prev => ({ ...prev, link: e.target.value }))} />
+                      </div>
                     </div>
+                  )}
 
-                    <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><strong>Course Quiz (optional)</strong><button type="button" className="btn-secondary" style={{ fontSize: '12px', padding: '8px 10px' }} onClick={handleAddQuizQuestion}>Add Question</button></div>
-                      <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
-                        <input className="form-control" placeholder="Question text" value={quizQuestionForm.question} onChange={(e) => setQuizQuestionForm(prev => ({ ...prev, question: e.target.value }))} />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                    <button className="btn-primary" onClick={() => setStudioStep(courseBuilder.external ? 4 : 2)}>
+                      Next: {courseBuilder.external ? 'Preview' : 'Curriculum'} <ArrowRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: CURRICULUM & LESSONS */}
+              {studioStep === 2 && (
+                <div style={{ display: 'grid', gap: '20px' }}>
+                  <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>Add New Lesson / Module</h4>
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+                        <input className="form-control" placeholder="Lesson title (e.g. What is IP Addressing?)" value={builderModuleForm.title} onChange={(e) => setBuilderModuleForm(prev => ({ ...prev, title: e.target.value }))} />
+                        <input className="form-control" placeholder="Duration (e.g. 30 min)" value={builderModuleForm.duration} onChange={(e) => setBuilderModuleForm(prev => ({ ...prev, duration: e.target.value }))} />
+                      </div>
+                      <textarea className="form-control" rows={4} placeholder="Lesson body text (supports Markdown: # Header, **bold**, lists)..." value={builderModuleForm.content} onChange={(e) => setBuilderModuleForm(prev => ({ ...prev, content: e.target.value }))} />
+                      <input className="form-control" placeholder="Optional YouTube embed URL (e.g. https://www.youtube.com/embed/xyz)" value={builderModuleForm.videoUrl} onChange={(e) => setBuilderModuleForm(prev => ({ ...prev, videoUrl: e.target.value }))} />
+                      <button type="button" className="btn-secondary" style={{ justifySelf: 'flex-start' }} onClick={handleAddModule}>
+                        + Add Lesson to Curriculum
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>Current Curriculum Lessons ({builderModules.length})</h4>
+                    {builderModules.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                        No lessons added yet. Fill out the form above to add lessons to your course.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        {builderModules.map((module, idx) => (
+                          <div key={module.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-primary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                            <div>
+                              <strong>Lesson {idx + 1}: {module.title}</strong>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Duration: {module.duration} {module.videoUrl ? '• Video attached' : ''}</div>
+                            </div>
+                            <button type="button" className="btn-secondary" style={{ fontSize: '11px', color: 'var(--danger)' }} onClick={() => handleRemoveModule(module.id)}>Remove</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+                    <button className="btn-secondary" onClick={() => setStudioStep(1)}><ArrowLeft size={16} /> Back</button>
+                    <button className="btn-primary" onClick={() => setStudioStep(3)}>Next: Quiz & Evaluation <ArrowRight size={16} /></button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: QUIZ & EVALUATION */}
+              {studioStep === 3 && (
+                <div style={{ display: 'grid', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="form-group">
+                      <label className="form-label">Quiz Pass Mark (%)</label>
+                      <input className="form-control" type="number" min={0} max={100} value={builderQuiz.passMark} onChange={(e) => setBuilderQuiz(prev => ({ ...prev, passMark: Number(e.target.value) }))} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Max Retake Attempts</label>
+                      <input className="form-control" type="number" min={1} value={builderQuiz.maxAttempts} onChange={(e) => setBuilderQuiz(prev => ({ ...prev, maxAttempts: Number(e.target.value) }))} />
+                    </div>
+                  </div>
+
+                  <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>Add Quiz Question</h4>
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                      <input className="form-control" placeholder="Question text..." value={quizQuestionForm.question} onChange={(e) => setQuizQuestionForm(prev => ({ ...prev, question: e.target.value }))} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                         <select className="form-control" value={quizQuestionForm.type} onChange={(e) => setQuizQuestionForm(prev => ({ ...prev, type: e.target.value }))}>
                           <option value="multiple-choice">Multiple Choice</option>
                           <option value="true-false">True / False</option>
                         </select>
-                        {quizQuestionForm.type === 'multiple-choice' && (<input className="form-control" placeholder="Options, comma separated" value={quizQuestionForm.options} onChange={(e) => setQuizQuestionForm(prev => ({ ...prev, options: e.target.value }))} />)}
-                        <input className="form-control" placeholder="Correct answer" value={quizQuestionForm.correctAnswer} onChange={(e) => setQuizQuestionForm(prev => ({ ...prev, correctAnswer: e.target.value }))} />
+                        <input className="form-control" placeholder="Exact Correct Answer" value={quizQuestionForm.correctAnswer} onChange={(e) => setQuizQuestionForm(prev => ({ ...prev, correctAnswer: e.target.value }))} />
                       </div>
-                      {builderQuiz.questions.length > 0 && (<div style={{ marginTop: '16px', display: 'grid', gap: '10px' }}>{builderQuiz.questions.map((question) => (<div key={question.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', backgroundColor: 'var(--bg-primary)', padding: '12px 14px', borderRadius: 'var(--radius-sm)' }}><div><div style={{ fontWeight: 700 }}>{question.question}</div><div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{question.type === 'true-false' ? 'True / False' : 'Multiple choice'}</div></div><button type="button" className="btn-secondary" onClick={() => handleRemoveQuizQuestion(question.id)}>Remove</button></div>))}</div>)}
-                      <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
-                        <div className="form-group"><label className="form-label">Quiz Pass Mark</label><input className="form-control" type="number" min={0} max={100} value={builderQuiz.passMark} onChange={(e) => setBuilderQuiz(prev => ({ ...prev, passMark: Number(e.target.value) }))} /></div>
-                        <div className="form-group"><label className="form-label">Max Retake Attempts</label><input className="form-control" type="number" min={1} value={builderQuiz.maxAttempts} onChange={(e) => setBuilderQuiz(prev => ({ ...prev, maxAttempts: Number(e.target.value) }))} /></div>
+                      {quizQuestionForm.type === 'multiple-choice' && (
+                        <input className="form-control" placeholder="Options (comma separated, e.g. Option A, Option B, Option C)" value={quizQuestionForm.options} onChange={(e) => setQuizQuestionForm(prev => ({ ...prev, options: e.target.value }))} />
+                      )}
+                      <button type="button" className="btn-secondary" style={{ justifySelf: 'flex-start' }} onClick={handleAddQuizQuestion}>
+                        + Add Question
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 style={{ margin: '0 0 12px', fontSize: '14px' }}>Questions List ({builderQuiz.questions.length})</h4>
+                    {builderQuiz.questions.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                        No questions added. Courses without a quiz will mark completion upon completing all lessons.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        {builderQuiz.questions.map((q, idx) => (
+                          <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-primary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                            <div>
+                              <strong>Q{idx + 1}: {q.question}</strong>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Type: {q.type} • Correct: {q.correctAnswer}</div>
+                            </div>
+                            <button type="button" className="btn-secondary" style={{ fontSize: '11px', color: 'var(--danger)' }} onClick={() => handleRemoveQuizQuestion(q.id)}>Remove</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+                    <button className="btn-secondary" onClick={() => setStudioStep(2)}><ArrowLeft size={16} /> Back</button>
+                    <button className="btn-primary" onClick={() => setStudioStep(4)}>Next: Live Preview <ArrowRight size={16} /></button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: PREVIEW & PUBLISH */}
+              {studioStep === 4 && (
+                <div style={{ display: 'grid', gap: '20px' }}>
+                  <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <span className="badge badge-applied">{courseBuilder.category}</span>
+                        <h3 style={{ margin: '8px 0 4px' }}>{courseBuilder.title || 'Untitled Course'}</h3>
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>{courseBuilder.description}</p>
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        <div>Difficulty: {courseBuilder.difficulty}</div>
+                        <div>Duration: {courseBuilder.duration}</div>
                       </div>
                     </div>
-                  </>
-                )}
+                  </div>
 
-                <button type="submit" className="btn-primary" style={{ justifyContent: 'center' }}>
-                  Publish Course
+                  {!courseBuilder.external && (
+                    <div>
+                      <h4 style={{ margin: '0 0 10px' }}>Curriculum Preview</h4>
+                      <div style={{ display: 'grid', gap: '10px' }}>
+                        {builderModules.map((m, i) => (
+                          <div key={m.id} style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                            <strong>Lesson {i + 1}: {m.title}</strong> ({m.duration})
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
+                    <button className="btn-secondary" onClick={() => setStudioStep(courseBuilder.external ? 1 : 3)}><ArrowLeft size={16} /> Back</button>
+                    <button className="btn-primary" onClick={() => handleCreateCourse()} style={{ background: 'var(--success)' }}>
+                      <CheckCircle2 size={16} /> Publish Course Live
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: AI COURSE CO-PILOT */}
+          {hrTab === 'ai-copilot' && (
+            <div className="card" style={{ maxWidth: '800px', margin: '0 auto' }}>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'inline-flex', padding: '12px', borderRadius: '50%', backgroundColor: 'var(--bg-tertiary)', marginBottom: '12px' }}>
+                  <Sparkles size={28} color="#a855f7" />
+                </div>
+                <h2 className="chart-title">AI Course Co-pilot</h2>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '540px', margin: '6px auto 0' }}>
+                  Describe any training topic or compliance goal, and our Gemini AI will generate a complete course with lesson modules, markdown content, and a quiz in seconds.
+                </p>
+              </div>
+
+              {aiMessage && (
+                <div style={{ color: 'var(--text)', backgroundColor: 'var(--bg-tertiary)', padding: '12px', borderRadius: 'var(--radius-md)', fontSize: '13px', marginBottom: '20px', textAlign: 'center' }}>
+                  {aiMessage}
+                </div>
+              )}
+
+              <form onSubmit={handleGenerateAICourse} style={{ display: 'grid', gap: '18px' }}>
+                <div className="form-group">
+                  <label className="form-label">Training Topic or Prompt *</label>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="e.g. Data Privacy and NDPR Regulations for SME Financial Services in Nigeria..."
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Category</label>
+                    <select className="form-control" value={aiCategory} onChange={(e) => setAiCategory(e.target.value)}>
+                      {categories.filter((c) => c !== 'All').map((category) => <option key={category} value={category}>{category}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Difficulty Level</label>
+                    <select className="form-control" value={aiDifficulty} onChange={(e) => setAiDifficulty(e.target.value)}>
+                      {difficulties.filter((d) => d !== 'All').map((difficulty) => <option key={difficulty} value={difficulty}>{difficulty}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={aiGenerating}
+                  className="btn-primary"
+                  style={{
+                    justifyContent: 'center',
+                    padding: '14px',
+                    fontSize: '15px',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
+                  }}
+                >
+                  {aiGenerating ? (
+                    <>Generating Course with AI...</>
+                  ) : (
+                    <>
+                      <Sparkles size={18} /> Generate Course with AI Co-pilot
+                    </>
+                  )}
                 </button>
               </form>
             </div>
-          </div>
-
-          <div className="table-card">
-            <div className="table-header-area"><h3 className="chart-title">Course Catalog & Employee Training Summary</h3></div>
-            <div className="table-responsive">
-              <table className="custom-table" style={{ fontSize: '13px' }}>
-                <thead><tr><th>Title</th><th>Category</th><th>Difficulty</th><th>Lessons</th><th>Quiz</th></tr></thead>
-                <tbody>{courses.map((course: any) => (<tr key={course.id}><td><strong>{course.title}</strong><div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{course.description}</div></td><td>{course.category || 'Other'}</td><td>{course.difficulty || 'Beginner'}</td><td>{course.modules?.length ?? 0}</td><td>{course.quiz ? 'Yes' : 'No'}</td></tr>))}</tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="table-card">
-            <div className="table-header-area"><h3 className="chart-title">Per Employee Training Status</h3></div>
-            <div className="table-responsive">
-              <table className="custom-table" style={{ fontSize: '13px' }}>
-                <thead><tr><th>Employee</th><th>Course</th><th>Status</th><th>Progress</th><th>Quiz Score</th><th>Certificate</th></tr></thead>
-                <tbody>{enrollments.map((enrollment: any) => {
-                  const employee = employees.find((emp: any) => emp.id === enrollment.employeeId);
-                  const course = courses.find((course: any) => course.id === enrollment.courseId);
-                  return (<tr key={enrollment.id}><td>{employee?.name || 'Unknown'}</td><td>{course?.title || 'Unknown Course'}</td><td>{enrollment.status}</td><td>{enrollment.progress}%</td><td>{enrollment.quizScore !== undefined ? `${enrollment.quizScore}%` : 'N/A'}</td><td>{enrollment.certificate ? 'Issued' : 'Pending'}</td></tr>);
-                })}</tbody>
-              </table>
-            </div>
-          </div>
+          )}
         </>
       ) : (
+        /* Employee Self-Service LMS View */
         <div style={{ display: 'grid', gap: '24px' }}>
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
@@ -756,9 +1139,6 @@ export default function TrainingPage() {
               <div style={{ display: 'grid', gap: '20px', marginTop: '20px' }}>
                 {myEnrollments.map((enr: any) => {
                   const course = enr.course;
-                  const isActive = activeEnrollmentId === enr.id;
-                  const completedLessons = enr.completedLessons || [];
-                  const quizReady = course?.quiz && course.modules?.length === completedLessons.length;
                   return (
                     <div
                       key={enr.id}
@@ -793,45 +1173,6 @@ export default function TrainingPage() {
                           <span className={`badge ${enr.status === 'Completed' ? 'badge-completed' : enr.status === 'In Progress' ? 'badge-inprogress' : 'badge-absent'}`}>{enr.status}</span>
                           <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-muted)' }}>Progress: {enr.progress}%</div>
                         </div>
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }} onClick={(e) => e.stopPropagation()}>
-                        {enr.status !== 'Completed' ? (
-                          <button
-                            className="btn-primary"
-                            onClick={() => {
-                              if (enr.status === 'Enrolled') {
-                                fetch('/api/training', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ action: 'startTraining', enrollmentId: enr.id })
-                                }).then(() => triggerRefresh());
-                              }
-                              router.push(`/dashboard/training/course/${enr.id}`);
-                            }}
-                          >
-                            <Play size={12} fill="#fff" /> {enr.status === 'Enrolled' ? 'Start Course' : 'Resume Course'}
-                          </button>
-                        ) : (
-                          enr.certificate && (
-                            <button
-                              className="btn-primary"
-                              onClick={() => {
-                                downloadCertificate(enr.certificate);
-                              }}
-                            >
-                              Download Certificate
-                            </button>
-                          )
-                        )}
-                        <button
-                          className="btn-secondary"
-                          onClick={() => {
-                            router.push(`/dashboard/training/course/${enr.id}`);
-                          }}
-                        >
-                          Open Course Page
-                        </button>
                       </div>
                     </div>
                   );
