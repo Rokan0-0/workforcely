@@ -272,38 +272,38 @@ export default function BenefitsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         {isAdmin ? (
           <>
-            <div className="metric-card" style={{ borderLeft: '4px solid var(--primary)' }}>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--primary)', padding: '16px 20px' }}>
               <strong style={{ fontSize: '24px' }}>{totalCoveredLives}</strong>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Covered Lives ({totalEmployeesEnrolled} Staff + {totalDependants} Dependants)</p>
             </div>
-            <div className="metric-card" style={{ borderLeft: '4px solid var(--accent)' }}>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--accent)', padding: '16px 20px' }}>
               <strong style={{ fontSize: '24px', color: 'var(--accent)' }}>₦{totalMonthlySpend.toLocaleString()}</strong>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Monthly Corporate HMO Spend</p>
             </div>
-            <div className="metric-card" style={{ borderLeft: '4px solid var(--success)' }}>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--success)', padding: '16px 20px' }}>
               <strong style={{ fontSize: '24px', color: 'var(--success)' }}>Hygeia & AXA</strong>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Top Enrolled HMO Providers</p>
             </div>
-            <div className="metric-card" style={{ borderLeft: '4px solid var(--warning)' }}>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--warning)', padding: '16px 20px' }}>
               <strong style={{ fontSize: '24px' }}>{claims.filter((c: any) => c.status === 'Pending HR Review').length}</strong>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Pending HR Refund Claims</p>
             </div>
           </>
         ) : (
           <>
-            <div className="metric-card" style={{ borderLeft: '4px solid var(--primary)' }}>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--primary)', padding: '16px 20px' }}>
               <strong style={{ fontSize: '18px' }}>{myPlan ? `${myPlan.provider} (${myPlan.tier})` : 'Not Enrolled'}</strong>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>My Active HMO Plan</p>
             </div>
-            <div className="metric-card" style={{ borderLeft: '4px solid var(--accent)' }}>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--accent)', padding: '16px 20px' }}>
               <strong style={{ fontSize: '18px', color: 'var(--accent)' }}>{myPlan ? myPlan.coveredLimit : '₦0'}</strong>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Annual Hospital Limit</p>
             </div>
-            <div className="metric-card" style={{ borderLeft: '4px solid var(--success)' }}>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--success)', padding: '16px 20px' }}>
               <strong style={{ fontSize: '24px', color: 'var(--success)' }}>{dependants.length}</strong>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Registered Family Dependants</p>
             </div>
-            <div className="metric-card" style={{ borderLeft: '4px solid var(--warning)' }}>
+            <div className="metric-card" style={{ borderLeft: '4px solid var(--warning)', padding: '16px 20px' }}>
               <strong style={{ fontSize: '24px' }}>{visibleClaims.length}</strong>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>My Submitted Claims</p>
             </div>
