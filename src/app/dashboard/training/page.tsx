@@ -246,7 +246,7 @@ function downloadCertificate(certificate: any) {
 <body>
   <div class="certificate-container">
     <div class="inner-border">
-      <div class="header-org">WORKFORCELY</div>
+      <div class="header-org">WORKFORCEMS</div>
       
       <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
         <div class="title">Certificate of Completion</div>

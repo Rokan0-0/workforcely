@@ -4,6 +4,76 @@ import { useState, useEffect } from 'react';
 import { useSession, getCachedData, setCachedData } from '../session-provider';
 import { AlertTriangle, FileText, Plus, X, ChevronRight, Clock, User, CheckCircle, AlertCircle, ShieldAlert, Timer, Send } from 'lucide-react';
 
+function downloadWarningLetter(query: any, employeeName: string) {
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WorkforceMS Disciplinary Letter</title>
+<style>
+  body { font-family: sans-serif; padding: 40px; color: #0f172a; line-height: 1.6; }
+  .letterhead { border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+  .brand { font-size: 24px; font-weight: 800; letter-spacing: 2px; }
+  .title { font-size: 18px; font-weight: 700; text-transform: uppercase; margin: 20px 0 10px; color: #ef4444; }
+  .field-label { font-weight: 700; color: #475569; width: 140px; display: inline-block; }
+  .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin: 16px 0; }
+  .signature-area { margin-top: 60px; display: flex; justify-content: space-between; }
+  .sig-block { border-top: 1px solid #0f172a; width: 200px; text-align: center; padding-top: 6px; font-size: 13px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="letterhead">
+    <div class="brand">WORKFORCEMS</div>
+    <div>Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+  </div>
+
+  <div style="margin-bottom: 20px;">
+    <div><span class="field-label">To:</span> <strong>${employeeName}</strong></div>
+    <div><span class="field-label">Reference ID:</span> ${query.id}</div>
+    <div><span class="field-label">Category:</span> ${query.category}</div>
+  </div>
+
+  <div class="title">OFFICIAL DISCIPLINARY NOTICE / CLEARANCE DECISION</div>
+
+  <p>Dear ${employeeName},</p>
+
+  <p>Following the formal HR Query issued on <strong>${query.issuedDate}</strong> regarding <em>"${query.title}"</em> and the review of the defense statement submitted, this official notice serves to record the final determination of management.</p>
+
+  <div class="box">
+    <strong>Allegation Summary:</strong>
+    <p>${query.description}</p>
+  </div>
+
+  <div class="box">
+    <strong>Employee Defense Statement:</strong>
+    <p>${query.defenseText || 'No defense submitted within statutory 48-hour window.'}</p>
+  </div>
+
+  <div class="box" style="border-left: 4px solid #3b82f6;">
+    <strong>Management Verdict / Sanction Level:</strong>
+    <p>Status: <strong>${query.status || 'Under Review'}</strong></p>
+  </div>
+
+  <p>This document constitutes an official entry in your workforce record. Future compliance with company policies and code of conduct is mandatory.</p>
+
+  <div class="signature-area">
+    <div class="sig-block">Olumide Sowore<br/><span style="color: #64748b; font-weight: 400;">HR Executive Director</span></div>
+    <div class="sig-block">${employeeName}<br/><span style="color: #64748b; font-weight: 400;">Employee Signature</span></div>
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `WorkforceMS_Disciplinary_${query.id}.html`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export default function IncidentsPage() {
   const { user, refreshFlag, triggerRefresh } = useSession();
   const [data, setData] = useState<any>(null);
@@ -258,21 +328,28 @@ export default function IncidentsPage() {
                     <th>Response Deadline</th>
                     <th>Status</th>
                     <th>Defense Status</th>
+                    <th>Document</th>
                   </tr>
                 </thead>
                 <tbody>
                   {queries.map((q: any) => {
                     const emp = employees.find((e: any) => e.id === q.employeeId);
+                    const empName = emp?.name || q.employeeId;
                     return (
                       <tr key={q.id}>
                         <td><strong>{q.id}</strong></td>
-                        <td><strong>{emp?.name || q.employeeId}</strong></td>
+                        <td><strong>{empName}</strong></td>
                         <td><span className="badge badge-applied">{q.category}</span></td>
                         <td>{q.title}</td>
                         <td>{q.issuedDate}</td>
                         <td style={{ color: 'var(--danger)', fontWeight: 600 }}>48-Hour Window ({q.deadlineDate})</td>
                         <td><span className={`badge ${q.status === 'Resolved' ? 'badge-completed' : 'badge-pending'}`}>{q.status}</span></td>
                         <td>{q.defenseText ? 'Defense Submitted' : 'Awaiting Defense'}</td>
+                        <td>
+                          <button className="btn-secondary" style={{ fontSize: '11px', padding: '4px 8px' }} onClick={() => downloadWarningLetter(q, empName)}>
+                            Download Notice
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}

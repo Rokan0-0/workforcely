@@ -19,10 +19,12 @@ import {
   Menu,
   Bell,
   AlertTriangle,
-  Award
+  Award,
+  Settings
 } from 'lucide-react';
 
 import { SessionContext, UserSession, clearCache } from './session-provider';
+import { getStoredFeatureFlags, setStoredFeatureFlags } from '../../config/features';
 
 export default function DashboardLayout({
   children,
@@ -35,6 +37,12 @@ export default function DashboardLayout({
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [loading, setLoading] = useState(true);
   const [refreshFlag, setRefreshFlag] = useState(0);
+  const [flags, setFlags] = useState(getStoredFeatureFlags());
+
+  // Keep flags state synced
+  useEffect(() => {
+    setFlags(getStoredFeatureFlags());
+  }, [refreshFlag]);
 
   const triggerRefresh = () => {
     clearCache();
@@ -122,6 +130,13 @@ export default function DashboardLayout({
     document.documentElement.setAttribute('data-theme', nextTheme);
   };
 
+  // Auto redirect from /dashboard to /dashboard/training when in WorkforceMS mode
+  useEffect(() => {
+    if (flags.workforceMSMode !== false && pathname === '/dashboard') {
+      router.replace('/dashboard/training');
+    }
+  }, [flags.workforceMSMode, pathname, router]);
+
   const switchRole = async (employeeId: string) => {
     setLoading(true);
     clearCache();
@@ -136,7 +151,7 @@ export default function DashboardLayout({
         setUser(data.user);
         // Refresh page or trigger context state
         triggerRefresh();
-        router.push('/dashboard');
+        router.push(flags.workforceMSMode !== false ? '/dashboard/training' : '/dashboard');
       }
     } catch (err) {
       console.error('Failed to switch role', err);
@@ -162,6 +177,13 @@ export default function DashboardLayout({
     }
   };
 
+  const toggleWorkforceMSMode = () => {
+    const updated = { ...flags, workforceMSMode: !flags.workforceMSMode };
+    setFlags(updated);
+    setStoredFeatureFlags(updated);
+    triggerRefresh();
+  };
+
   if (loading && !user) {
     return (
       <div style={{
@@ -181,38 +203,53 @@ export default function DashboardLayout({
 
   const isAdmin = user?.role === 'HR Admin';
 
-  // Construct menu items
-  const menuItems = isAdmin
-    ? [
-        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/dashboard/employees', label: 'Employees', icon: Users },
-        { path: '/dashboard/attendance', label: 'Attendance & Leave', icon: CalendarClock },
-        { path: '/dashboard/payroll', label: 'Payroll & EWA', icon: Banknote },
-        { path: '/dashboard/statutory', label: 'Statutory & Taxes', icon: Award },
-        { path: '/dashboard/benefits', label: 'HMO & Benefits', icon: FileText },
-        { path: '/dashboard/recruitment', label: 'Recruitment & Jobs', icon: Briefcase },
-        { path: '/dashboard/memos', label: 'Memos & Mails', icon: FileText },
-        { path: '/dashboard/incidents', label: 'Queries & Sanctions', icon: AlertTriangle },
-        { path: '/dashboard/performance', label: 'Performance', icon: Award },
-        { path: '/dashboard/training', label: 'Training & Dev', icon: GraduationCap },
-        { path: '/dashboard/ai-assistant', label: 'AI HR Assistant', icon: Bot },
-      ]
-    : [
-        { path: '/dashboard', label: 'Portal Home', icon: LayoutDashboard },
-        { path: '/dashboard/employees', label: 'My Profile', icon: User },
-        { path: '/dashboard/attendance', label: 'Attendance & Leave', icon: CalendarClock },
-        { path: '/dashboard/payroll', label: 'My Payslips & EWA', icon: Banknote },
-        { path: '/dashboard/benefits', label: 'My HMO & Benefits', icon: FileText },
-        { path: '/dashboard/performance', label: 'Performance & Goals', icon: Award },
-        { path: '/dashboard/memos', label: 'Memos & Mails', icon: FileText },
-        { path: '/dashboard/incidents', label: 'Queries & Sanctions', icon: AlertTriangle },
-        { path: '/dashboard/training', label: 'Training & Dev', icon: GraduationCap },
-        { path: '/dashboard/ai-assistant', label: 'AI Assistant', icon: Bot },
-      ];
+  // Construct menu items based on WorkforceMS Mode (Only LMS Software + HMO Benefits)
+  const isWorkforceMSMode = flags.workforceMSMode !== false; // Default ON
+
+  const allMenuItems = isAdmin
+    ? isWorkforceMSMode
+      ? [
+          { path: '/dashboard/training', label: 'AI LMS Training & Dev', icon: GraduationCap },
+          { path: '/dashboard/benefits', label: 'HMO & Health Benefits', icon: FileText },
+        ]
+      : [
+          { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { path: '/dashboard/employees', label: 'Employees', icon: Users },
+          { path: '/dashboard/attendance', label: 'Attendance & Leave', icon: CalendarClock },
+          { path: '/dashboard/payroll', label: 'Payroll & EWA', icon: Banknote },
+          { path: '/dashboard/statutory', label: 'Statutory & Taxes', icon: Award },
+          { path: '/dashboard/benefits', label: 'HMO & Benefits', icon: FileText },
+          { path: '/dashboard/recruitment', label: 'Recruitment & Jobs', icon: Briefcase },
+          { path: '/dashboard/memos', label: 'Memos & Mails', icon: FileText },
+          { path: '/dashboard/incidents', label: 'Queries & Sanctions', icon: AlertTriangle },
+          { path: '/dashboard/performance', label: 'Performance', icon: Award },
+          { path: '/dashboard/training', label: 'Training & Dev', icon: GraduationCap },
+          { path: '/dashboard/ai-assistant', label: 'AI HR Assistant', icon: Bot },
+          { path: '/dashboard/settings', label: 'Platform Mode', icon: Settings },
+        ]
+    : isWorkforceMSMode
+      ? [
+          { path: '/dashboard/training', label: 'My LMS Courses', icon: GraduationCap },
+          { path: '/dashboard/benefits', label: 'My HMO & Benefits', icon: FileText },
+        ]
+      : [
+          { path: '/dashboard', label: 'Portal Home', icon: LayoutDashboard },
+          { path: '/dashboard/employees', label: 'My Profile', icon: User },
+          { path: '/dashboard/attendance', label: 'Attendance & Leave', icon: CalendarClock },
+          { path: '/dashboard/payroll', label: 'My Payslips & EWA', icon: Banknote },
+          { path: '/dashboard/benefits', label: 'My HMO & Benefits', icon: FileText },
+          { path: '/dashboard/performance', label: 'Performance & Goals', icon: Award },
+          { path: '/dashboard/memos', label: 'Memos & Mails', icon: FileText },
+          { path: '/dashboard/incidents', label: 'Queries & Sanctions', icon: AlertTriangle },
+          { path: '/dashboard/training', label: 'Training & Dev', icon: GraduationCap },
+          { path: '/dashboard/ai-assistant', label: 'AI Assistant', icon: Bot },
+        ];
+
+  const menuItems = allMenuItems;
 
   // Map pathname to header title
   const getHeaderTitle = () => {
-    if (pathname === '/dashboard') return isAdmin ? 'HR Admin Control Center' : 'Employee Self-Service Portal';
+    if (pathname === '/dashboard') return isAdmin ? 'WorkforceMS Control Center' : 'Employee Self-Service Portal';
     if (pathname.includes('/employees')) return isAdmin ? 'Employee Management' : 'My Personal Profile';
     if (pathname.includes('/attendance')) return 'Attendance & Leave Management';
     if (pathname.includes('/payroll')) return isAdmin ? 'Payroll & Deductions Ledger' : 'My Monthly Payslips';
@@ -220,9 +257,11 @@ export default function DashboardLayout({
     if (pathname.includes('/memos')) return 'Company Memos & Announcements';
     if (pathname.includes('/incidents')) return 'Incident Reporting & Sanctions';
     if (pathname.includes('/performance')) return 'Performance Metrics & Goals';
-    if (pathname.includes('/training')) return isAdmin ? 'Training Courses & Enrollment' : 'My Training & Review History';
-    if (pathname.includes('/ai-assistant')) return 'AI Assistant';
-    return 'Workforcely Management';
+    if (pathname.includes('/training')) return 'AI LMS Training & Development';
+    if (pathname.includes('/ai-assistant')) return 'Conversational AI Assistant';
+    if (pathname.includes('/benefits')) return 'HMO & Healthcare Benefits';
+    if (pathname.includes('/settings')) return 'Platform Mode Configuration';
+    return 'WorkforceMS Management';
   };
 
   return (
@@ -238,13 +277,15 @@ export default function DashboardLayout({
 
         {/* Sidebar */}
         <aside className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-          <div className="sidebar-brand">
-            <span className="brand-dot"></span>
-            Workforcely
+          <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img src="/woms_logo.png" alt="WorkforceMS Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+            <span style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.5px', color: '#ffffff' }}>
+              WorkforceMS
+            </span>
           </div>
 
           <nav className="sidebar-menu">
-            <div className="menu-section">HR Platform</div>
+            <div className="menu-section">{isWorkforceMSMode ? 'WorkforceMS Engine' : 'HR Super-App'}</div>
             <ul>
               {menuItems.map(item => {
                 const Icon = item.icon;
@@ -272,6 +313,7 @@ export default function DashboardLayout({
                   src={user.profilePhoto}
                   alt={user.name}
                   className="user-avatar"
+                  style={{ border: '2px solid #16a34a' }}
                 />
                 <div className="user-info">
                   <div className="user-name">{user.name}</div>
@@ -295,18 +337,19 @@ export default function DashboardLayout({
               </button>
               <div className="page-title-area">
                 <h1 className="page-title">{getHeaderTitle()}</h1>
-                <p className="page-subtitle">Workforcely Demo Co • Nigerian SME Retail/Fintech</p>
+                <p className="page-subtitle">WorkforceMS Engine • AI LMS + Healthcare Benefits</p>
               </div>
             </div>
 
             <div className="topbar-actions">
               {/* Instant Switcher Dropdown */}
               <div className="role-switcher-container">
-                <span className="role-switcher-label">Switch Role:</span>
+                <span className="role-switcher-label">Role:</span>
                 <select
                   className="role-select"
                   value={user?.id || ''}
                   onChange={(e) => switchRole(e.target.value)}
+                  style={{ color: '#22c55e' }}
                 >
                   <option value="emp-2">Admin: Olumide (HR)</option>
                   <option value="emp-1">Admin: Chioma (Engineering)</option>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, EmployeeHMOEnrollment, EWARequest, HMOClaim } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const hmoPlans = db.getHmoPlans();
   const hmoEnrollments = db.getHmoEnrollments();
