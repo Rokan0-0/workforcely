@@ -116,6 +116,11 @@ export default function PublicRecruitmentPage() {
         <div style={{ position: 'absolute', top: '-100px', left: '-100px', width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', filter: 'blur(50px)' }} />
         <div style={{ position: 'absolute', bottom: '-80px', right: '-80px', width: 250, height: 250, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', filter: 'blur(40px)' }} />
         
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '999px', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', marginBottom: '16px', border: '1px solid rgba(255,255,255,0.2)' }}>
+          <img src="/logo-icon.svg" alt="Workforcely Logo" style={{ width: '20px', height: '20px', borderRadius: '5px' }} />
+          <span style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Workforcely Careers</span>
+        </div>
+        
         <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: 0, letterSpacing: '-0.03em', lineHeight: '1.2' }}>
           Shape the Future of SME Operations
         </h1>

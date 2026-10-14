@@ -277,10 +277,10 @@ export default function DashboardLayout({
 
         {/* Sidebar */}
         <aside className={`sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-          <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/woms_logo.png" alt="WorkforceMS Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
-            <span style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.5px', color: '#ffffff' }}>
-              WorkforceMS
+          <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src="/logo-icon.svg" alt="Workforcely Logo" style={{ width: '28px', height: '28px', borderRadius: '7px' }} />
+            <span style={{ fontWeight: 800, fontSize: '19px', letterSpacing: '-0.5px' }}>
+              Workforce<span style={{ color: 'var(--accent)' }}>ly</span>
             </span>
           </div>
 
